@@ -1,10 +1,10 @@
 import { program } from 'commander';
-import fs from 'fs';
 import chalk from 'chalk';
 import { addDomainToHosts } from '../utils/hosts.js';
 import { generateCertificates } from '../utils/ssl.js';
-import { reloadCaddy } from '../utils/caddy.js';
-import { ensureDomainDirectories, getDomainLogPath } from '../utils/file.js';
+import { reloadCaddy, startCaddy, getCaddyProcessInfo } from '../utils/caddy.js';
+import { ensureDomainDirectories } from '../utils/file.js';
+import { addProxy } from '../utils/config.js';
 
 program
   .command('add <domain> <targetPort>')
@@ -12,38 +12,36 @@ program
   .option('--custom-cert', 'Use mkcert-generated certificates instead of Caddy internal CA')
   .action(async (domain, targetPort, options) => {
     try {
-      let tlsDirective = '';
-
-      if (options.customCert) {
-        const certificates = generateCertificates(domain);
-        tlsDirective = `tls ${certificates.cert} ${certificates.key}`;
-      }
-
       // Create domain-specific directory structure
       ensureDomainDirectories(domain);
 
-      // Get domain-specific log file path
-      const domainLogPath = getDomainLogPath(domain);
+      let tlsOptions = {};
+      if (options.customCert) {
+        const certificates = generateCertificates(domain);
+        tlsOptions = {
+          tlsCertPath: certificates.cert,
+          tlsKeyPath: certificates.key
+        };
+      }
 
-      // Update Caddyfile with the new proxy configuration
-      const proxyConfig = `
-${domain} {
-  log {
-    output file ${domainLogPath}
-    format console
-  }
-  reverse_proxy http://127.0.0.1:${targetPort}
-  ${tlsDirective}
-}
-`;
-      fs.appendFileSync(process.env.CADDYFILE_PATH, proxyConfig);
+      // Add proxy configuration
+      addProxy(domain, parseInt(targetPort, 10), {
+        enableLogging: true,
+        ...tlsOptions
+      });
+      
       console.log(chalk.green(`Added proxy for ${domain}`));
-      console.log(chalk.green(`Domain logs will be written to ${domainLogPath}`));
 
       // Add domain to /etc/hosts within the cpm block
       await addDomainToHosts(domain);
 
-      // Format and reload Caddy after adding the new domain
+      // Check if Caddy is running, if not start it
+      const processInfo = getCaddyProcessInfo();
+      if (!processInfo) {
+        await startCaddy();
+      }
+
+      // Reload Caddy after adding the new domain
       await reloadCaddy();
     } catch (error) {
       console.error(chalk.red(`Failed to add proxy: ${error.message}`));

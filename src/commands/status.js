@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 import { getCaddyProcessInfo, getCaddyConnections } from '../utils/caddy.js';
 import { parseProxyConfigs } from '../utils/file.js';
-import { CADDYFILE_PATH, TABLE_CONFIG } from '../config/constants.js';
+import { CADDY_CONFIG_PATH, TABLE_CONFIG } from '../config/constants.js';
 
 program
   .command('status')
@@ -33,7 +33,7 @@ program
         ['Uptime', processInfo.uptime],
         ['Memory Usage', processInfo.memory],
         ['Active Connections', connections],
-        ['Caddyfile', CADDYFILE_PATH]
+        ['Config File', CADDY_CONFIG_PATH]
       );
 
       console.log(table.toString());

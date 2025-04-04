@@ -4,9 +4,8 @@ import { loadProxyConfigs } from '../utils/file.js';
 import { addDomainToHosts } from '../utils/hosts.js';
 import { generateCertificates } from '../utils/ssl.js';
 import { reloadCaddy } from '../utils/caddy.js';
-import { ensureDomainDirectories, getDomainLogPath } from '../utils/file.js';
-import fs from 'fs';
-import { CADDYFILE_PATH } from '../config/constants.js';
+import { ensureDomainDirectories } from '../utils/file.js';
+import { addProxy } from '../utils/config.js';
 
 program
   .command('bulk')
@@ -26,33 +25,25 @@ program
         }
 
         try {
-          let tlsDirective = '';
-
-          if (proxy.useCustomCert) {
-            const certificates = generateCertificates(proxy.domain);
-            tlsDirective = `tls ${certificates.cert} ${certificates.key}`;
-          }
-
           // Create domain-specific directory structure
           ensureDomainDirectories(proxy.domain);
 
-          // Get domain-specific log file path
-          const domainLogPath = getDomainLogPath(proxy.domain);
+          let tlsOptions = {};
+          if (proxy.useCustomCert) {
+            const certificates = generateCertificates(proxy.domain);
+            tlsOptions = {
+              tlsCertPath: certificates.cert,
+              tlsKeyPath: certificates.key
+            };
+          }
 
-          // Update Caddyfile with the new proxy configuration
-          const proxyConfig = `
-${proxy.domain} {
-  log {
-    output file ${domainLogPath}
-    format console
-  }
-  reverse_proxy http://127.0.0.1:${proxy.port}
-  ${tlsDirective}
-}
-`;
-          fs.appendFileSync(CADDYFILE_PATH, proxyConfig);
+          // Add proxy configuration
+          addProxy(proxy.domain, proxy.port, {
+            enableLogging: true,
+            ...tlsOptions
+          });
+
           console.log(chalk.green(`Added proxy for ${proxy.domain}`));
-          console.log(chalk.green(`Domain logs will be written to ${domainLogPath}`));
 
           // Add domain to /etc/hosts within the cpm block
           await addDomainToHosts(proxy.domain);
@@ -61,7 +52,7 @@ ${proxy.domain} {
         }
       }
 
-      // Format and reload Caddy after adding all domains
+      // Reload Caddy after adding all domains
       await reloadCaddy();
       console.log(chalk.green('Bulk operation completed.'));
     } catch (error) {

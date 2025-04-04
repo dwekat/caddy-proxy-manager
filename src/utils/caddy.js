@@ -2,7 +2,7 @@ import shell from 'shelljs';
 import fs from 'fs';
 import chalk from 'chalk';
 import { spawn } from 'child_process';
-import { CADDYFILE_PATH } from '../config/constants.js';
+import { CADDY_CONFIG_PATH } from '../config/constants.js';
 import { validateCertificates } from './ssl.js';
 
 /**
@@ -10,32 +10,18 @@ import { validateCertificates } from './ssl.js';
  * @returns {Promise<void>}
  */
 export async function reloadCaddy() {
-  try {
-    console.log(chalk.yellow('Formatting Caddyfile...'));
-    const formatResult = shell.exec(`caddy fmt --overwrite ${CADDYFILE_PATH}`);
-    
-    if (formatResult.code !== 0) {
-      throw new Error(`Failed to format Caddyfile: ${formatResult.stderr}`);
-    }
+  console.log(chalk.yellow('Reloading Caddy with JSON config...'));
+  
+  const reloadResult = shell.exec(`caddy reload --config ${CADDY_CONFIG_PATH}`, {
+    silent: true
+  });
 
-    const caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
-    if (!validateCertificates(caddyfileContent)) {
-      throw new Error('Caddy reload aborted due to missing certificates.');
-    }
-
-    console.log(chalk.yellow('Reloading Caddy with specified config file...'));
-    const reloadResult = shell.exec(`caddy reload --config ${CADDYFILE_PATH}`, {
-      silent: true,
-    });
-
-    if (reloadResult.code === 0) {
-      console.log(chalk.green('Caddy reloaded successfully with the specified config.'));
-    } else {
-      throw new Error(`Failed to reload Caddy: ${reloadResult.stderr}`);
-    }
-  } catch (error) {
-    console.error(chalk.red(error.message));
-    throw error;
+  if (reloadResult.code === 0) {
+    console.log(chalk.green('Caddy reloaded successfully.'));
+    return true;
+  } else {
+    console.error(chalk.red('Failed to reload Caddy:'), reloadResult.stderr);
+    return false;
   }
 }
 
@@ -44,21 +30,19 @@ export async function reloadCaddy() {
  * @returns {Promise<void>}
  */
 export function startCaddy() {
-  return new Promise((resolve, reject) => {
-    try {
-      const caddyProcess = spawn('caddy', ['start', '--config', CADDYFILE_PATH], {
-        detached: true,
-        stdio: 'ignore',
-      });
-
-      caddyProcess.unref();
-      console.log(chalk.green('Caddy started successfully in the background.'));
-      resolve();
-    } catch (error) {
-      console.error(chalk.red(`Failed to start Caddy: ${error.message}`));
-      reject(error);
-    }
+  console.log(chalk.yellow('Starting Caddy with JSON config...'));
+  
+  const startResult = shell.exec(`caddy start --config ${CADDY_CONFIG_PATH}`, {
+    silent: true
   });
+
+  if (startResult.code === 0) {
+    console.log(chalk.green('Caddy started successfully.'));
+    return true;
+  } else {
+    console.error(chalk.red('Failed to start Caddy:'), startResult.stderr);
+    return false;
+  }
 }
 
 /**
@@ -66,17 +50,17 @@ export function startCaddy() {
  * @returns {Promise<void>}
  */
 export function stopCaddy() {
-  return new Promise((resolve, reject) => {
-    const result = shell.exec('caddy stop', { silent: true });
+  console.log(chalk.yellow('Stopping Caddy...'));
+  
+  const stopResult = shell.exec('caddy stop', { silent: true });
 
-    if (result.code === 0) {
-      console.log(chalk.green('Caddy stopped successfully.'));
-      resolve();
-    } else {
-      console.error(chalk.red('Failed to stop Caddy:'), result.stderr);
-      reject(new Error(result.stderr));
-    }
-  });
+  if (stopResult.code === 0) {
+    console.log(chalk.green('Caddy stopped successfully.'));
+    return true;
+  } else {
+    console.error(chalk.red('Failed to stop Caddy:'), stopResult.stderr);
+    return false;
+  }
 }
 
 /**
@@ -97,13 +81,13 @@ export function getCaddyProcessInfo() {
   return {
     pid,
     uptime: uptimeResult.stdout.trim(),
-    memory: memoryResult.stdout.trim() + '%',
+    memory: memoryResult.stdout.trim() + '%'
   };
 }
 
 /**
- * Gets the number of active Caddy connections
- * @returns {string} Number of connections or 'Unknown'
+ * Gets Caddy active connections
+ * @returns {string} Number of active connections
  */
 export function getCaddyConnections() {
   try {

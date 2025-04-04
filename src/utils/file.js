@@ -3,7 +3,7 @@ import path from 'path';
 import shell from 'shelljs';
 import chalk from 'chalk';
 import yaml from 'js-yaml';
-import { CADDYFILE_PATH, LOGS_PATH } from '../config/constants.js';
+import { CADDY_CONFIG_PATH, LOGS_PATH } from '../config/constants.js';
 
 /**
  * Gets domain-specific directory path
@@ -55,8 +55,8 @@ export function ensureDomainDirectories(domain) {
  * Ensures Caddyfile exists with global logging config
  */
 export function ensureCaddyfile() {
-  if (!fs.existsSync(CADDYFILE_PATH)) {
-    shell.mkdir('-p', path.dirname(CADDYFILE_PATH));
+  if (!fs.existsSync(CADDY_CONFIG_PATH)) {
+    shell.mkdir('-p', path.dirname(CADDY_CONFIG_PATH));
 
     if (!fs.existsSync(LOGS_PATH)) {
       shell.mkdir('-p', LOGS_PATH);
@@ -70,8 +70,8 @@ export function ensureCaddyfile() {
   }
 }
 `;
-    fs.writeFileSync(CADDYFILE_PATH, globalConfig);
-    console.log(chalk.green(`Initialized Caddyfile at ${CADDYFILE_PATH}`));
+    fs.writeFileSync(CADDY_CONFIG_PATH, globalConfig);
+    console.log(chalk.green(`Initialized Caddyfile at ${CADDY_CONFIG_PATH}`));
   }
 }
 
@@ -81,7 +81,7 @@ export function ensureCaddyfile() {
  */
 export function parseProxyConfigs() {
   try {
-    const caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
+    const caddyfileContent = fs.readFileSync(CADDY_CONFIG_PATH, 'utf-8');
 
     if (!caddyfileContent.trim()) {
       return [];
@@ -126,7 +126,7 @@ export async function saveProxyConfigs(filePath) {
 
     const backupData = {
       timestamp: new Date().toISOString(),
-      caddyfilePath: CADDYFILE_PATH,
+      caddyfilePath: CADDY_CONFIG_PATH,
       proxies,
     };
 
