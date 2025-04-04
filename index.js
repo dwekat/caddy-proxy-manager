@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import {program} from 'commander';
+import { program } from 'commander';
 import chalk from 'chalk';
 import shell from 'shelljs';
 import sudo from 'sudo-prompt';
@@ -26,8 +26,11 @@ const HOSTS_BLOCK_END = '# cpm-managed block - end';
 // Function to ensure cpm block exists in /etc/hosts
 function ensureHostsBlock() {
   const command = `grep -q "${HOSTS_BLOCK_START}" ${HOSTS_FILE} || echo -e "\\n${HOSTS_BLOCK_START}\\n${HOSTS_BLOCK_END}" >> ${HOSTS_FILE}`;
-  sudo.exec(command, {name: 'Caddy Proxy Manager'}, (error) => {
-    if (error) console.error(chalk.red(`Failed to ensure cpm block in hosts file: ${error}`));
+  sudo.exec(command, { name: 'Caddy Proxy Manager' }, (error) => {
+    if (error)
+      console.error(
+        chalk.red(`Failed to ensure cpm block in hosts file: ${error}`)
+      );
   });
 }
 
@@ -43,7 +46,7 @@ ${hostEntry}\\
 ' ${HOSTS_FILE}
   `;
 
-  sudo.exec(combinedCommand, {name: 'Caddy Proxy Manager'}, (error) => {
+  sudo.exec(combinedCommand, { name: 'Caddy Proxy Manager' }, (error) => {
     if (error) {
       console.error(chalk.red(`Failed to add domain to hosts file: ${error}`));
     } else {
@@ -55,8 +58,11 @@ ${hostEntry}\\
 // Function to remove domain from the cpm block in /etc/hosts
 function removeDomainFromHosts(domain) {
   const removeHostEntry = `sed -i '' '/^127.0.0.1 ${domain}$/d' ${HOSTS_FILE}`;
-  sudo.exec(removeHostEntry, {name: 'Caddy Proxy Manager'}, (error) => {
-    if (error) console.error(chalk.red(`Failed to remove domain from hosts file: ${error}`));
+  sudo.exec(removeHostEntry, { name: 'Caddy Proxy Manager' }, (error) => {
+    if (error)
+      console.error(
+        chalk.red(`Failed to remove domain from hosts file: ${error}`)
+      );
     else console.log(chalk.green(`Removed ${domain} from hosts file.`));
   });
 }
@@ -65,7 +71,9 @@ function removeDomainFromHosts(domain) {
 function checkMkcert() {
   if (!shell.which('mkcert')) {
     console.log(chalk.red('Error: mkcert is not installed.'));
-    console.log(chalk.yellow('Please install mkcert using the following command:'));
+    console.log(
+      chalk.yellow('Please install mkcert using the following command:')
+    );
     console.log(chalk.green('brew install mkcert && mkcert -install'));
     process.exit(1);
   }
@@ -73,10 +81,15 @@ function checkMkcert() {
 
 // Function to ensure mkcert's local CA is installed
 function ensureLocalCA() {
-  const certPath = path.join(shell.env.HOME, 'Library/Application Support/mkcert');
+  const certPath = path.join(
+    shell.env.HOME,
+    'Library/Application Support/mkcert'
+  );
   if (!fs.existsSync(certPath)) {
     console.log(chalk.red('Error: mkcert local CA is not installed.'));
-    console.log(chalk.yellow('Please run the following command to install the local CA:'));
+    console.log(
+      chalk.yellow('Please run the following command to install the local CA:')
+    );
     console.log(chalk.green('mkcert -install'));
     process.exit(1);
   }
@@ -94,7 +107,9 @@ function validateCertificates() {
     const keyPath = match[2];
 
     if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
-      console.log(chalk.red(`Missing certificate or key file: ${certPath} or ${keyPath}`));
+      console.log(
+        chalk.red(`Missing certificate or key file: ${certPath} or ${keyPath}`)
+      );
       allCertsExist = false;
     }
   }
@@ -120,13 +135,13 @@ function getDomainLogPath(domain) {
 // Ensure Caddyfile exists with global logging config
 if (!fs.existsSync(CADDYFILE_PATH)) {
   shell.mkdir('-p', path.dirname(CADDYFILE_PATH));
-  
+
   // Create logs directory if it doesn't exist
   if (!fs.existsSync(LOGS_PATH)) {
     shell.mkdir('-p', LOGS_PATH);
     console.log(chalk.green(`Created logs directory at ${LOGS_PATH}`));
   }
-  
+
   // Create initial Caddyfile with global logging configuration
   const globalConfig = `{
   log {
@@ -136,17 +151,24 @@ if (!fs.existsSync(CADDYFILE_PATH)) {
 }
 `;
   fs.writeFileSync(CADDYFILE_PATH, globalConfig);
-  console.log(chalk.green(`Initialized Caddyfile with logging configuration at ${CADDYFILE_PATH}`));
+  console.log(
+    chalk.green(
+      `Initialized Caddyfile with logging configuration at ${CADDYFILE_PATH}`
+    )
+  );
 } else {
   // Ensure logs directory exists
   if (!fs.existsSync(LOGS_PATH)) {
     shell.mkdir('-p', LOGS_PATH);
     console.log(chalk.green(`Created logs directory at ${LOGS_PATH}`));
   }
-  
+
   // Check if global log config exists, add if not
   const caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
-  if (!caddyfileContent.includes('log {') && !caddyfileContent.includes('output file')) {
+  if (
+    !caddyfileContent.includes('log {') &&
+    !caddyfileContent.includes('output file')
+  ) {
     const globalConfig = `{
   log {
     output file ${DEFAULT_LOG_FILE}
@@ -172,9 +194,13 @@ function reloadCaddy() {
   }
 
   console.log(chalk.yellow('Reloading Caddy with specified config file...'));
-  const reloadResult = shell.exec(`caddy reload --config ${CADDYFILE_PATH}`, {silent: true});
+  const reloadResult = shell.exec(`caddy reload --config ${CADDYFILE_PATH}`, {
+    silent: true,
+  });
   if (reloadResult.code === 0) {
-    console.log(chalk.green('Caddy reloaded successfully with the specified config.'));
+    console.log(
+      chalk.green('Caddy reloaded successfully with the specified config.')
+    );
   } else {
     console.log(chalk.red('Failed to reload Caddy:', reloadResult.stderr));
   }
@@ -185,21 +211,21 @@ async function checkDomainHealth(domain, port) {
   try {
     const url = `https://${domain}`;
     const spinner = ora(`Checking ${url}...`).start();
-    
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      const response = await fetch(url, { 
+
+      const response = await fetch(url, {
         signal: controller.signal,
         // Skip certificate validation for self-signed certs
-        agent: function(_parsedURL) {
+        agent: function (_parsedURL) {
           return { rejectUnauthorized: false };
-        }
+        },
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (response.ok) {
         spinner.succeed(`${url} is ${chalk.green('UP')}`);
         return true;
@@ -232,7 +258,7 @@ function getProcessForPort(port) {
       const parts = lines[1].split(/\s+/);
       return {
         pid: parts[1],
-        name: parts[0]
+        name: parts[0],
       };
     }
   }
@@ -243,28 +269,30 @@ function getProcessForPort(port) {
 function parseProxyConfigs() {
   try {
     const caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
-    
+
     if (!caddyfileContent.trim()) {
       return [];
     }
-    
+
     const proxies = [];
     const proxyBlocks = caddyfileContent.split(/\n\n+/);
-    
+
     proxyBlocks.forEach((block) => {
       const domainMatch = block.match(/^(\S+)\s*\{/);
-      const portMatch = block.match(/reverse_proxy http:\/\/127\.0\.0\.1:(\d+)/);
+      const portMatch = block.match(
+        /reverse_proxy http:\/\/127\.0\.0\.1:(\d+)/
+      );
       const tlsEnabled = block.includes('tls');
-      
+
       if (domainMatch && portMatch) {
         proxies.push({
           domain: domainMatch[1],
           port: portMatch[1],
-          ssl: tlsEnabled
+          ssl: tlsEnabled,
         });
       }
     });
-    
+
     return proxies;
   } catch (error) {
     console.error(chalk.red(`Error parsing Caddyfile: ${error.message}`));
@@ -275,26 +303,28 @@ function parseProxyConfigs() {
 // Get Caddy process information
 function getCaddyProcessInfo() {
   const pidResult = shell.exec('pgrep -x caddy', { silent: true });
-  
+
   if (pidResult.code !== 0) {
     return null;
   }
-  
+
   const pid = pidResult.stdout.trim();
   const uptimeResult = shell.exec(`ps -p ${pid} -o etime=`, { silent: true });
   const memoryResult = shell.exec(`ps -p ${pid} -o %mem=`, { silent: true });
-  
+
   return {
     pid,
     uptime: uptimeResult.stdout.trim(),
-    memory: memoryResult.stdout.trim() + '%'
+    memory: memoryResult.stdout.trim() + '%',
   };
 }
 
 // Function to get Caddy active connections
 function getCaddyConnections() {
   try {
-    const result = shell.exec('sudo lsof -p $(pgrep -x caddy) | grep -c TCP', { silent: true });
+    const result = shell.exec('sudo lsof -p $(pgrep -x caddy) | grep -c TCP', {
+      silent: true,
+    });
     return result.stdout.trim();
   } catch (error) {
     return 'Unknown';
@@ -314,13 +344,17 @@ program
       return;
     }
 
-    const tableHeaders = options.health 
-      ? [chalk.blue('Domain'), chalk.blue('Port'), chalk.blue('Custom SSL'), chalk.blue('Health'), chalk.blue('Port Status')]
+    const tableHeaders = options.health
+      ? [
+        chalk.blue('Domain'),
+        chalk.blue('Port'),
+        chalk.blue('Custom SSL'),
+        chalk.blue('Health'),
+        chalk.blue('Port Status'),
+      ]
       : [chalk.blue('Domain'), chalk.blue('Port'), chalk.blue('Custom SSL')];
-    
-    const colWidths = options.health 
-      ? [30, 10, 15, 15, 20]
-      : [30, 10, 15];
+
+    const colWidths = options.health ? [30, 10, 15, 15, 20] : [30, 10, 15];
 
     const table = new Table({
       head: tableHeaders,
@@ -328,28 +362,38 @@ program
     });
 
     // Parse proxy configurations by looking for domain blocks in the Caddyfile
-    const proxyBlocks = caddyfileContent.split(/\n\n+/);  // Split by double newlines for each block
-    
+    const proxyBlocks = caddyfileContent.split(/\n\n+/); // Split by double newlines for each block
+
     for (const block of proxyBlocks) {
-      const domainMatch = block.match(/^(\S+)\s*\{/);  // Match the domain name at the start of each block
-      const portMatch = block.match(/reverse_proxy http:\/\/127\.0\.0\.1:(\d+)/);  // Match port in reverse_proxy directive
-      const tlsEnabled = block.includes('tls');  // Check if tls directive is in the block
+      const domainMatch = block.match(/^(\S+)\s*\{/); // Match the domain name at the start of each block
+      const portMatch = block.match(
+        /reverse_proxy http:\/\/127\.0\.0\.1:(\d+)/
+      ); // Match port in reverse_proxy directive
+      const tlsEnabled = block.includes('tls'); // Check if tls directive is in the block
 
       if (domainMatch && portMatch) {
         const domain = domainMatch[1];
         const port = portMatch[1];
-        
+
         if (options.health) {
           // Add port status check
-          const portStatus = isPortInUse(port) 
-            ? chalk.green('LISTENING') 
+          const portStatus = isPortInUse(port)
+            ? chalk.green('LISTENING')
             : chalk.red('NOT LISTENING');
-          
+
           // Perform health check if requested
           const healthStatus = await checkDomainHealth(domain, port);
-          const healthText = healthStatus ? chalk.green('HEALTHY') : chalk.red('UNHEALTHY');
-          
-          table.push([domain, port, tlsEnabled ? 'Yes' : 'No', healthText, portStatus]);
+          const healthText = healthStatus
+            ? chalk.green('HEALTHY')
+            : chalk.red('UNHEALTHY');
+
+          table.push([
+            domain,
+            port,
+            tlsEnabled ? 'Yes' : 'No',
+            healthText,
+            portStatus,
+          ]);
         } else {
           table.push([domain, port, tlsEnabled ? 'Yes' : 'No']);
         }
@@ -362,13 +406,18 @@ program
 // Command: Add a new proxy
 program
   .command('add <domain> <targetPort>')
-  .description('Add a new proxy. Use --custom-cert flag to use mkcert-generated certificates.')
-  .option('--custom-cert', 'Use mkcert-generated certificates instead of Caddy internal CA')
+  .description(
+    'Add a new proxy. Use --custom-cert flag to use mkcert-generated certificates.'
+  )
+  .option(
+    '--custom-cert',
+    'Use mkcert-generated certificates instead of Caddy internal CA'
+  )
   .action((domain, targetPort, options) => {
     let tlsDirective = '';
 
     if (options.customCert) {
-      checkMkcert();  // Check if mkcert is installed
+      checkMkcert(); // Check if mkcert is installed
       ensureLocalCA(); // Check if local CA is installed
 
       const certPath = path.join(CERTS_PATH, `${domain}.pem`);
@@ -377,7 +426,9 @@ program
       // Generate certificates if they do not exist
       if (!fs.existsSync(certPath) || !fs.existsSync(certKeyPath)) {
         console.log(chalk.yellow(`Generating certificate for ${domain}...`));
-        shell.exec(`mkcert -cert-file ${certPath} -key-file ${certKeyPath} ${domain}`);
+        shell.exec(
+          `mkcert -cert-file ${certPath} -key-file ${certKeyPath} ${domain}`
+        );
       }
 
       // Update the tlsDirective to use custom certs
@@ -387,17 +438,19 @@ program
     // Create domain-specific directory structure
     const domainDir = getDomainDir(domain);
     const domainLogsDir = getDomainLogsDir(domain);
-    
+
     if (!fs.existsSync(domainDir)) {
       shell.mkdir('-p', domainDir);
       console.log(chalk.green(`Created domain directory at ${domainDir}`));
     }
-    
+
     if (!fs.existsSync(domainLogsDir)) {
       shell.mkdir('-p', domainLogsDir);
-      console.log(chalk.green(`Created domain logs directory at ${domainLogsDir}`));
+      console.log(
+        chalk.green(`Created domain logs directory at ${domainLogsDir}`)
+      );
     }
-    
+
     // Get domain-specific log file path
     const domainLogPath = getDomainLogPath(domain);
 
@@ -452,7 +505,7 @@ program
       fs.unlinkSync(certKeyPath);
       console.log(chalk.green(`Deleted certificate key for ${domain}.`));
     }
-    
+
     // Optionally clean up domain directory
     const domainDir = getDomainDir(domain);
     if (fs.existsSync(domainDir)) {
@@ -460,7 +513,9 @@ program
         shell.rm('-rf', domainDir);
         console.log(chalk.green(`Removed domain directory at ${domainDir}`));
       } catch (error) {
-        console.log(chalk.yellow(`Could not remove domain directory: ${error.message}`));
+        console.log(
+          chalk.yellow(`Could not remove domain directory: ${error.message}`)
+        );
       }
     }
 
@@ -475,22 +530,26 @@ program
   .option('-o, --out <file>', 'Output file path', DEFAULT_BACKUP_PATH)
   .action((options) => {
     const proxies = parseProxyConfigs();
-    
+
     if (proxies.length === 0) {
       console.log(chalk.yellow('No proxies found to backup.'));
       return;
     }
-    
+
     try {
       const backupData = {
         timestamp: new Date().toISOString(),
         caddyfilePath: CADDYFILE_PATH,
-        proxies
+        proxies,
       };
-      
+
       const yamlStr = yaml.dump(backupData);
       fs.writeFileSync(options.out, yamlStr, 'utf8');
-      console.log(chalk.green(`Successfully backed up ${proxies.length} proxies to ${options.out}`));
+      console.log(
+        chalk.green(
+          `Successfully backed up ${proxies.length} proxies to ${options.out}`
+        )
+      );
     } catch (error) {
       console.error(chalk.red(`Failed to backup proxies: ${error.message}`));
     }
@@ -507,26 +566,31 @@ program
         console.error(chalk.red(`Backup file not found: ${options.file}`));
         return;
       }
-      
+
       const fileContents = fs.readFileSync(options.file, 'utf8');
       const backupData = yaml.load(fileContents);
-      
+
       if (!backupData.proxies || !Array.isArray(backupData.proxies)) {
         console.error(chalk.red('Invalid backup file format.'));
         return;
       }
-      
+
       // Clear existing Caddyfile
       fs.writeFileSync(CADDYFILE_PATH, '', 'utf8');
-      
+
       // Add each proxy from the backup
-      backupData.proxies.forEach(proxy => {
+      backupData.proxies.forEach((proxy) => {
         const options = { customCert: proxy.ssl };
-        program.commands.find(cmd => cmd._name === 'add')
+        program.commands
+          .find((cmd) => cmd._name === 'add')
           ._actionHandler(proxy.domain, proxy.port, options);
       });
-      
-      console.log(chalk.green(`Successfully restored ${backupData.proxies.length} proxies from ${options.file}`));
+
+      console.log(
+        chalk.green(
+          `Successfully restored ${backupData.proxies.length} proxies from ${options.file}`
+        )
+      );
     } catch (error) {
       console.error(chalk.red(`Failed to restore proxies: ${error.message}`));
     }
@@ -553,7 +617,7 @@ program
   .description('Stop the Caddy server running in the background')
   .action(() => {
     const stopCommand = 'caddy stop';
-    const result = shell.exec(stopCommand, {silent: true});
+    const result = shell.exec(stopCommand, { silent: true });
 
     if (result.code === 0) {
       console.log(chalk.green('Caddy stopped successfully.'));
@@ -568,30 +632,35 @@ program
   .description('Check status of ports used by proxies')
   .action(() => {
     const proxies = parseProxyConfigs();
-    
+
     if (proxies.length === 0) {
       console.log(chalk.yellow('No proxies found.'));
       return;
     }
-    
+
     const table = new Table({
-      head: [chalk.blue('Domain'), chalk.blue('Port'), chalk.blue('Status'), chalk.blue('Process')],
+      head: [
+        chalk.blue('Domain'),
+        chalk.blue('Port'),
+        chalk.blue('Status'),
+        chalk.blue('Process'),
+      ],
       colWidths: [30, 10, 15, 30],
     });
-    
-    proxies.forEach(proxy => {
+
+    proxies.forEach((proxy) => {
       const port = proxy.port;
       const isUsed = isPortInUse(port);
       const process = getProcessForPort(port);
-      
+
       table.push([
         proxy.domain,
         port,
         isUsed ? chalk.green('IN USE') : chalk.red('NOT IN USE'),
-        process ? `${process.name} (PID: ${process.pid})` : 'N/A'
+        process ? `${process.name} (PID: ${process.pid})` : 'N/A',
       ]);
     });
-    
+
     console.log(table.toString());
   });
 
@@ -605,23 +674,23 @@ program
   .action((domain, options) => {
     // If domain is specified, use domain-specific log file
     let logPath = options.logPath;
-    
+
     if (domain && !logPath) {
       const domainLogPath = getDomainLogPath(domain);
       if (fs.existsSync(domainLogPath)) {
         logPath = domainLogPath;
       }
     }
-    
+
     // If no log path determined yet, use default paths
     if (!logPath) {
       // Default log paths to check
       const possibleLogPaths = [
         DEFAULT_LOG_FILE,
         '/var/log/caddy/access.log',
-        path.join(process.env.HOME, '.local/share/caddy/logs/access.log')
+        path.join(process.env.HOME, '.local/share/caddy/logs/access.log'),
       ];
-      
+
       // If no custom path, try to find an existing log file
       for (const potentialPath of possibleLogPaths) {
         if (fs.existsSync(potentialPath)) {
@@ -630,29 +699,50 @@ program
         }
       }
     }
-    
+
     // If domain specified but no domain log file found
-    if (domain && !fs.existsSync(getDomainLogPath(domain)) && !options.logPath) {
-      console.log(chalk.yellow(`No specific log file found for domain: ${domain}`));
-      
+    if (
+      domain &&
+      !fs.existsSync(getDomainLogPath(domain)) &&
+      !options.logPath
+    ) {
+      console.log(
+        chalk.yellow(`No specific log file found for domain: ${domain}`)
+      );
+
       // Try to create domain directory structure and suggest reloading Caddy
       const domainDir = getDomainDir(domain);
       const domainLogsDir = getDomainLogsDir(domain);
-      
+
       if (!fs.existsSync(domainDir)) {
         shell.mkdir('-p', domainDir);
         console.log(chalk.green(`Created domain directory at ${domainDir}`));
       }
-      
+
       if (!fs.existsSync(domainLogsDir)) {
         shell.mkdir('-p', domainLogsDir);
-        console.log(chalk.green(`Created domain logs directory at ${domainLogsDir}`));
+        console.log(
+          chalk.green(`Created domain logs directory at ${domainLogsDir}`)
+        );
       }
-      
-      console.log(chalk.blue(`This domain may have been added before domain-specific logging was enabled.`));
-      console.log(chalk.green(`Falling back to global log file: ${logPath || DEFAULT_LOG_FILE}`));
-      console.log(chalk.yellow(`Consider updating your Caddyfile to use domain-specific logging:`));
-      console.log(chalk.green(`
+
+      console.log(
+        chalk.blue(
+          `This domain may have been added before domain-specific logging was enabled.`
+        )
+      );
+      console.log(
+        chalk.green(
+          `Falling back to global log file: ${logPath || DEFAULT_LOG_FILE}`
+        )
+      );
+      console.log(
+        chalk.yellow(
+          `Consider updating your Caddyfile to use domain-specific logging:`
+        )
+      );
+      console.log(
+        chalk.green(`
 ${domain} {
   log {
     output file ${getDomainLogPath(domain)}
@@ -660,26 +750,46 @@ ${domain} {
   }
   ...other directives...
 }
-      `));
-      console.log(chalk.yellow(`Then reload Caddy with: caddy reload --config ${CADDYFILE_PATH}`));
+      `)
+      );
+      console.log(
+        chalk.yellow(
+          `Then reload Caddy with: caddy reload --config ${CADDYFILE_PATH}`
+        )
+      );
     }
-    
+
     // If no log file found
     if (!logPath || !fs.existsSync(logPath)) {
       console.log(chalk.red('No Caddy log file found.'));
-      console.log(chalk.yellow('Caddy logs have been configured but the log file does not exist yet.'));
-      console.log(chalk.blue('This usually means Caddy needs to be restarted or hasn\'t received any requests.'));
+      console.log(
+        chalk.yellow(
+          'Caddy logs have been configured but the log file does not exist yet.'
+        )
+      );
+      console.log(
+        chalk.blue(
+          "This usually means Caddy needs to be restarted or hasn't received any requests."
+        )
+      );
       console.log(chalk.yellow('Try restarting Caddy:'));
       console.log(chalk.green('cpm stop && cpm start'));
       return;
     }
-    
+
     // Prepare commands
-    const tailArgs = options.follow ? ['-f', logPath] : ['-n', options.lines, logPath];
-    const grepArgs = domain && logPath !== getDomainLogPath(domain) ? ['-i', domain] : [];
-    
-    console.log(chalk.yellow(`Showing logs${domain ? ` for ${domain}` : ''} from ${logPath}...`));
-    
+    const tailArgs = options.follow
+      ? ['-f', logPath]
+      : ['-n', options.lines, logPath];
+    const grepArgs =
+      domain && logPath !== getDomainLogPath(domain) ? ['-i', domain] : [];
+
+    console.log(
+      chalk.yellow(
+        `Showing logs${domain ? ` for ${domain}` : ''} from ${logPath}...`
+      )
+    );
+
     // Start the tail process
     const tail = spawn('tail', tailArgs);
     let lastProcess = tail;
@@ -696,8 +806,13 @@ ${domain} {
     lastProcess.stdout.pipe(process.stdout);
 
     // Handle errors
-    tail.stderr.on('data', (data) => console.error(chalk.red(`Tail error: ${data}`)));
-    if (grep) grep.stderr.on('data', (data) => console.error(chalk.red(`Grep error: ${data}`)));
+    tail.stderr.on('data', (data) =>
+      console.error(chalk.red(`Tail error: ${data}`))
+    );
+    if (grep)
+      grep.stderr.on('data', (data) =>
+        console.error(chalk.red(`Grep error: ${data}`))
+      );
 
     // Handle process exits
     const cleanup = () => {
@@ -706,14 +821,13 @@ ${domain} {
     };
     process.on('SIGINT', cleanup);
     process.on('SIGTERM', cleanup);
-    
+
     lastProcess.on('exit', (code) => {
       if (code !== 0 && code !== null) {
         console.error(chalk.red(`Log process exited with code ${code}`));
       }
       cleanup(); // Ensure all processes are killed on exit
     });
-
   });
 
 // Command: Enable logs for a domain
@@ -724,57 +838,64 @@ program
     try {
       // Read the Caddyfile content
       let caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
-      
+
       // Extract the domain's block from the Caddyfile
       const domainRegex = new RegExp(`(${domain}\\s*\\{[^}]*\\})`, 's');
       const match = caddyfileContent.match(domainRegex);
-      
+
       if (!match) {
         console.log(chalk.red(`Domain "${domain}" not found in Caddyfile.`));
         return;
       }
-      
+
       const domainBlock = match[1];
-      
+
       // Check if log directive already exists
       if (domainBlock.includes('log {')) {
-        console.log(chalk.blue(`Domain ${domain} already has logging configured.`));
+        console.log(
+          chalk.blue(`Domain ${domain} already has logging configured.`)
+        );
         return;
       }
-      
+
       // Create domain logs directory if it doesn't exist
       const domainDir = getDomainDir(domain);
       const domainLogsDir = getDomainLogsDir(domain);
       const domainLogPath = getDomainLogPath(domain);
-      
+
       if (!fs.existsSync(domainDir)) {
         shell.mkdir('-p', domainDir);
         console.log(chalk.green(`Created domain directory at ${domainDir}`));
       }
-      
+
       if (!fs.existsSync(domainLogsDir)) {
         shell.mkdir('-p', domainLogsDir);
-        console.log(chalk.green(`Created domain logs directory at ${domainLogsDir}`));
+        console.log(
+          chalk.green(`Created domain logs directory at ${domainLogsDir}`)
+        );
       }
-      
+
       // Add log directive right after domain declaration
       const updatedBlock = domainBlock.replace(
         new RegExp(`(${domain}\\s*\\{)`, 's'),
         `$1\n  log {\n    output file ${domainLogPath}\n    format console\n  }`
       );
-      
+
       // Replace the old block with the updated one
       caddyfileContent = caddyfileContent.replace(domainRegex, updatedBlock);
       fs.writeFileSync(CADDYFILE_PATH, caddyfileContent);
-      
+
       console.log(chalk.green(`Enabling logs for domain: ${domain}`));
-      console.log(chalk.green(`Domain logs will be written to ${domainLogPath}`));
-      
+      console.log(
+        chalk.green(`Domain logs will be written to ${domainLogPath}`)
+      );
+
       // Format and reload Caddy
       reloadCaddy();
-      
     } catch (error) {
-      console.error(chalk.red(`Error enabling logs for domain ${domain}: ${error.message}`));
+      console.error(
+        chalk.red(`Error enabling logs for domain ${domain}: ${error.message}`)
+      );
     }
   });
 
@@ -786,38 +907,41 @@ program
     try {
       // Read the Caddyfile content
       let caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
-      
+
       // Extract the domain's block from the Caddyfile
       const domainRegex = new RegExp(`(${domain}\\s*\\{[^}]*\\})`, 's');
       const match = caddyfileContent.match(domainRegex);
-      
+
       if (!match) {
         console.log(chalk.red(`Domain "${domain}" not found in Caddyfile.`));
         return;
       }
-      
+
       const domainBlock = match[1];
-      
+
       // Check if log directive exists
       if (!domainBlock.includes('log {')) {
-        console.log(chalk.blue(`Domain ${domain} does not have logging configured.`));
+        console.log(
+          chalk.blue(`Domain ${domain} does not have logging configured.`)
+        );
         return;
       }
-      
+
       // Remove log directive
       const updatedBlock = domainBlock.replace(/\s*log\s*\{[^}]*\}/s, '');
-      
+
       // Replace the old block with the updated one
       caddyfileContent = caddyfileContent.replace(domainRegex, updatedBlock);
       fs.writeFileSync(CADDYFILE_PATH, caddyfileContent);
-      
+
       console.log(chalk.yellow(`Disabling logs for domain: ${domain}`));
-      
+
       // Format and reload Caddy
       reloadCaddy();
-      
     } catch (error) {
-      console.error(chalk.red(`Error disabling logs for domain ${domain}: ${error.message}`));
+      console.error(
+        chalk.red(`Error disabling logs for domain ${domain}: ${error.message}`)
+      );
     }
   });
 
@@ -828,40 +952,51 @@ program
   .option('-f, --file <file>', 'YAML file with proxy configurations')
   .action((options) => {
     if (!options.file) {
-      console.error(chalk.red('Please specify a YAML file using --file option.'));
+      console.error(
+        chalk.red('Please specify a YAML file using --file option.')
+      );
       return;
     }
-    
+
     try {
       if (!fs.existsSync(options.file)) {
         console.error(chalk.red(`File not found: ${options.file}`));
         return;
       }
-      
+
       const fileContents = fs.readFileSync(options.file, 'utf8');
       const config = yaml.load(fileContents);
-      
+
       if (!config.proxies || !Array.isArray(config.proxies)) {
-        console.error(chalk.red('Invalid configuration file format. Expected "proxies" array.'));
+        console.error(
+          chalk.red(
+            'Invalid configuration file format. Expected "proxies" array.'
+          )
+        );
         return;
       }
-      
+
       console.log(chalk.blue(`Adding ${config.proxies.length} proxies...`));
-      
-      config.proxies.forEach(proxy => {
+
+      config.proxies.forEach((proxy) => {
         if (!proxy.domain || !proxy.port) {
-          console.error(chalk.red(`Skipping invalid proxy: ${JSON.stringify(proxy)}`));
+          console.error(
+            chalk.red(`Skipping invalid proxy: ${JSON.stringify(proxy)}`)
+          );
           return;
         }
-        
+
         const cmdOptions = { customCert: proxy.useCustomCert };
-        program.commands.find(cmd => cmd._name === 'add')
+        program.commands
+          .find((cmd) => cmd._name === 'add')
           ._actionHandler(proxy.domain, proxy.port, cmdOptions);
       });
-      
+
       console.log(chalk.green('Bulk operation completed.'));
     } catch (error) {
-      console.error(chalk.red(`Failed to process bulk operation: ${error.message}`));
+      console.error(
+        chalk.red(`Failed to process bulk operation: ${error.message}`)
+      );
     }
   });
 
@@ -873,43 +1008,45 @@ program
     try {
       // Check if Caddy is running
       const result = shell.exec('pgrep -x caddy', { silent: true });
-      
+
       if (result.code !== 0) {
         console.log(chalk.red('Caddy is not running.'));
         return;
       }
-      
+
       // Get process information
       const processInfo = getCaddyProcessInfo();
-      
+
       if (!processInfo) {
         console.log(chalk.red('Could not retrieve Caddy process information.'));
         return;
       }
-      
+
       // Get active connections
       const connections = getCaddyConnections();
-      
+
       // Create status table
       const table = new Table();
-      
+
       table.push(
-        { 'Status': chalk.green('RUNNING') },
-        { 'PID': processInfo.pid },
-        { 'Uptime': processInfo.uptime },
+        { Status: chalk.green('RUNNING') },
+        { PID: processInfo.pid },
+        { Uptime: processInfo.uptime },
         { 'Memory Usage': processInfo.memory },
         { 'Active Connections': connections },
-        { 'Caddyfile': CADDYFILE_PATH }
+        { Caddyfile: CADDYFILE_PATH }
       );
-      
+
       console.log(table.toString());
-      
+
       // Show proxy count
       const proxies = parseProxyConfigs();
       console.log(chalk.blue(`Managing ${proxies.length} proxies.`));
-      
     } catch (error) {
-      console.error(chalk.red('Error while checking Caddy status:'), error.message);
+      console.error(
+        chalk.red('Error while checking Caddy status:'),
+        error.message
+      );
     }
   });
 
@@ -921,7 +1058,7 @@ program
   .action((options) => {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const completionPath = path.join(__dirname, 'completion.sh');
-    
+
     // Generate completion script
     const completionScript = `
 # cpm shell completion
@@ -961,31 +1098,33 @@ _cpm_completion() {
 
 complete -F _cpm_completion cpm
 `;
-    
+
     fs.writeFileSync(completionPath, completionScript, 'utf8');
-    console.log(chalk.green(`Completion script generated at: ${completionPath}`));
-    
+    console.log(
+      chalk.green(`Completion script generated at: ${completionPath}`)
+    );
+
     // If the install option is false, just print instructions and exit
     if (!options.install) {
       console.log(chalk.yellow('Add the following line to your shell config:'));
       console.log(chalk.blue(`source ${completionPath}`));
       return;
     }
-    
+
     // Detect user's shell
     const userShell = process.env.SHELL || '/bin/bash';
     const shellName = path.basename(userShell);
-    
+
     // Determine the appropriate config file
     let configFile;
     let shellConfigFiles = {
-      'bash': ['.bashrc', '.bash_profile'],
-      'zsh': ['.zshrc'],
-      'fish': ['.config/fish/config.fish']
+      bash: ['.bashrc', '.bash_profile'],
+      zsh: ['.zshrc'],
+      fish: ['.config/fish/config.fish'],
     };
-    
+
     let configFiles = shellConfigFiles[shellName] || ['.bashrc'];
-    
+
     // Find the first existing config file
     for (const file of configFiles) {
       const fullPath = path.join(process.env.HOME, file);
@@ -994,36 +1133,44 @@ complete -F _cpm_completion cpm
         break;
       }
     }
-    
+
     if (!configFile) {
-      console.log(chalk.red(`Could not find config file for ${shellName}. Using default.`));
+      console.log(
+        chalk.red(`Could not find config file for ${shellName}. Using default.`)
+      );
       configFile = path.join(process.env.HOME, configFiles[0]);
     }
-    
+
     // Line to add to config
     const sourceLine = `source ${completionPath}`;
-    
+
     try {
       // Check if line already exists in config
       let configContent = '';
       if (fs.existsSync(configFile)) {
         configContent = fs.readFileSync(configFile, 'utf8');
       }
-      
+
       if (configContent.includes(sourceLine)) {
-        console.log(chalk.green(`Completion already installed in ${configFile}`));
+        console.log(
+          chalk.green(`Completion already installed in ${configFile}`)
+        );
         return;
       }
-      
+
       // Add the line to the config file
       const appendContent = `\n# Added by caddy-proxy-manager\n${sourceLine}\n`;
       fs.appendFileSync(configFile, appendContent, 'utf8');
-      
+
       console.log(chalk.green(`✅ Completion installed in ${configFile}`));
-      console.log(chalk.yellow(`To use completion in current shell, run: ${sourceLine}`));
+      console.log(
+        chalk.yellow(`To use completion in current shell, run: ${sourceLine}`)
+      );
     } catch (error) {
       console.error(chalk.red(`Error installing completion: ${error.message}`));
-      console.log(chalk.yellow('Add the following line to your shell config manually:'));
+      console.log(
+        chalk.yellow('Add the following line to your shell config manually:')
+      );
       console.log(chalk.blue(sourceLine));
     }
   });
