@@ -9,10 +9,11 @@
 - **Health Checks**: Check health status of your proxies.
 - **Port Monitoring**: See which ports are in use and by which processes.
 - **Backup & Restore**: Save and restore proxy configurations to YAML files.
-- **Logs**: View and filter Caddy logs for specific domains.
+- **Domain-Specific Directories**: Each domain gets its own directory with dedicated logs.
 - **Bulk Operations**: Add multiple proxies at once from a YAML file.
 - **Status Info**: View detailed Caddy process information.
 - **Shell Completion**: Tab completion for commands and domains.
+- **Log Management**: Enable or disable logs for specific domains.
 
 ## Prerequisites
 - **[Caddy](https://caddyserver.com/)** should be installed and configured on your machine.
@@ -115,7 +116,18 @@ Follow logs:
 cpm logs -f
 ```
 
-#### 8. Bulk Operations
+#### 8. Enable or Disable Logs for a Domain
+Enable or disable logging for a specific domain.
+```bash
+cpm logs-toggle example.local
+```
+
+Disable logs for a domain:
+```bash
+cpm logs-toggle example.local --disable
+```
+
+#### 9. Bulk Operations
 Add multiple proxies from a YAML configuration file.
 ```bash
 cpm bulk -f proxies.yml
@@ -131,13 +143,13 @@ proxies:
     port: 3001
 ```
 
-#### 9. Server Status
+#### 10. Server Status
 Check detailed Caddy server status.
 ```bash
 cpm status
 ```
 
-#### 10. Shell Completion
+#### 11. Shell Completion
 Generate and install shell completion automatically:
 ```bash
 cpm completion
@@ -150,7 +162,7 @@ cpm completion --no-install
 
 The completion script will be automatically added to your shell configuration file (`.bashrc`, `.zshrc`, or `config.fish`) based on your current shell. You'll need to restart your shell or source the config file for the changes to take effect.
 
-#### 11. Start/Stop Caddy
+#### 12. Start/Stop Caddy
 Start Caddy in the background:
 ```bash
 cpm start
@@ -166,8 +178,13 @@ cpm stop
 By default, `cpm` uses the following paths:
 - **Caddyfile**: `~/.caddy/Caddyfile`
 - **Certificates**: `~/.caddy/certs/`
+- **Global Log**: `~/.caddy/logs/access.log`
+- **Domain Directories**: `~/.caddy/<domain>/` - Each domain gets its own directory
+- **Domain Logs**: `~/.caddy/<domain>/logs/access.log` - Domain-specific logs
 
-Make sure these paths exist and are accessible by `cpm`.
+Make sure these paths exist and are accessible by `cpm`. The tool will create them automatically if they don't exist.
+
+Logging is automatically configured in the Caddyfile, with each domain getting its own log file in its dedicated directory for better separation and debugging. The global log file captures general Caddy activity not specific to any domain.
 
 ## Troubleshooting
 - **mkcert not installed**: Make sure `mkcert` is installed and the local CA is set up.

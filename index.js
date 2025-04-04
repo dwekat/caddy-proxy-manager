@@ -15,7 +15,9 @@ import ora from 'ora';
 const CADDYFILE_PATH = path.join(process.env.HOME, '.caddy', 'Caddyfile');
 const HOSTS_FILE = '/etc/hosts';
 const CERTS_PATH = path.join(process.env.HOME, '.caddy', 'certs');
+const LOGS_PATH = path.join(process.env.HOME, '.caddy', 'logs');
 const DEFAULT_BACKUP_PATH = './cpm-backup.yml';
+const DEFAULT_LOG_FILE = path.join(LOGS_PATH, 'access.log');
 
 // Host block markers
 const HOSTS_BLOCK_START = '# cpm-managed block - start';
@@ -100,10 +102,62 @@ function validateCertificates() {
   return allCertsExist;
 }
 
-// Ensure Caddyfile exists
+// Function to get domain-specific directory
+function getDomainDir(domain) {
+  return path.join(process.env.HOME, '.caddy', domain);
+}
+
+// Function to get domain-specific log directory
+function getDomainLogsDir(domain) {
+  return path.join(getDomainDir(domain), 'logs');
+}
+
+// Function to get domain-specific log file path
+function getDomainLogPath(domain) {
+  return path.join(getDomainLogsDir(domain), 'access.log');
+}
+
+// Ensure Caddyfile exists with global logging config
 if (!fs.existsSync(CADDYFILE_PATH)) {
   shell.mkdir('-p', path.dirname(CADDYFILE_PATH));
-  fs.writeFileSync(CADDYFILE_PATH, '');
+  
+  // Create logs directory if it doesn't exist
+  if (!fs.existsSync(LOGS_PATH)) {
+    shell.mkdir('-p', LOGS_PATH);
+    console.log(chalk.green(`Created logs directory at ${LOGS_PATH}`));
+  }
+  
+  // Create initial Caddyfile with global logging configuration
+  const globalConfig = `{
+  log {
+    output file ${DEFAULT_LOG_FILE}
+    format console
+  }
+}
+`;
+  fs.writeFileSync(CADDYFILE_PATH, globalConfig);
+  console.log(chalk.green(`Initialized Caddyfile with logging configuration at ${CADDYFILE_PATH}`));
+} else {
+  // Ensure logs directory exists
+  if (!fs.existsSync(LOGS_PATH)) {
+    shell.mkdir('-p', LOGS_PATH);
+    console.log(chalk.green(`Created logs directory at ${LOGS_PATH}`));
+  }
+  
+  // Check if global log config exists, add if not
+  const caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
+  if (!caddyfileContent.includes('log {') && !caddyfileContent.includes('output file')) {
+    const globalConfig = `{
+  log {
+    output file ${DEFAULT_LOG_FILE}
+    format console
+  }
+}
+
+`;
+    fs.writeFileSync(CADDYFILE_PATH, globalConfig + caddyfileContent);
+    console.log(chalk.green(`Added logging configuration to Caddyfile`));
+  }
 }
 
 // Function to reload Caddy with specified config file and format it
@@ -330,15 +384,38 @@ program
       tlsDirective = `tls ${certPath} ${certKeyPath}`;
     }
 
+    // Create domain-specific directory structure
+    const domainDir = getDomainDir(domain);
+    const domainLogsDir = getDomainLogsDir(domain);
+    
+    if (!fs.existsSync(domainDir)) {
+      shell.mkdir('-p', domainDir);
+      console.log(chalk.green(`Created domain directory at ${domainDir}`));
+    }
+    
+    if (!fs.existsSync(domainLogsDir)) {
+      shell.mkdir('-p', domainLogsDir);
+      console.log(chalk.green(`Created domain logs directory at ${domainLogsDir}`));
+    }
+    
+    // Get domain-specific log file path
+    const domainLogPath = getDomainLogPath(domain);
+
     // Update Caddyfile with the new proxy configuration, using either tls internal or custom certs
+    // Now including domain-specific logging
     const proxyConfig = `
 ${domain} {
+  log {
+    output file ${domainLogPath}
+    format console
+  }
   reverse_proxy http://127.0.0.1:${targetPort}
   ${tlsDirective}
 }
 `;
     fs.appendFileSync(CADDYFILE_PATH, proxyConfig);
     console.log(chalk.green(`Added proxy for ${domain}`));
+    console.log(chalk.green(`Domain logs will be written to ${domainLogPath}`));
 
     // Add domain to /etc/hosts within the cpm block
     addDomainToHosts(domain);
@@ -374,6 +451,17 @@ program
     if (fs.existsSync(certKeyPath)) {
       fs.unlinkSync(certKeyPath);
       console.log(chalk.green(`Deleted certificate key for ${domain}.`));
+    }
+    
+    // Optionally clean up domain directory
+    const domainDir = getDomainDir(domain);
+    if (fs.existsSync(domainDir)) {
+      try {
+        shell.rm('-rf', domainDir);
+        console.log(chalk.green(`Removed domain directory at ${domainDir}`));
+      } catch (error) {
+        console.log(chalk.yellow(`Could not remove domain directory: ${error.message}`));
+      }
     }
 
     // Format and reload Caddy after removing the domain
@@ -513,15 +601,224 @@ program
   .description('View Caddy logs, optionally filtered by domain')
   .option('-f, --follow', 'Follow log output')
   .option('-n, --lines <lines>', 'Number of lines to show', '100')
+  .option('--log-path <path>', 'Custom log file path')
   .action((domain, options) => {
-    const logPath = '/var/log/caddy/access.log';
-    let grepCmd = domain ? `grep -i "${domain}"` : 'cat';
-    let tailCmd = options.follow ? 'tail -f' : `tail -n ${options.lines}`;
+    // If domain is specified, use domain-specific log file
+    let logPath = options.logPath;
     
-    console.log(chalk.yellow(`Showing logs${domain ? ` for ${domain}` : ''}...`));
+    if (domain && !logPath) {
+      const domainLogPath = getDomainLogPath(domain);
+      if (fs.existsSync(domainLogPath)) {
+        logPath = domainLogPath;
+      }
+    }
     
-    const cmd = `${tailCmd} ${logPath} | ${grepCmd}`;
-    shell.exec(cmd, { async: options.follow });
+    // If no log path determined yet, use default paths
+    if (!logPath) {
+      // Default log paths to check
+      const possibleLogPaths = [
+        DEFAULT_LOG_FILE,
+        '/var/log/caddy/access.log',
+        path.join(process.env.HOME, '.local/share/caddy/logs/access.log')
+      ];
+      
+      // If no custom path, try to find an existing log file
+      for (const potentialPath of possibleLogPaths) {
+        if (fs.existsSync(potentialPath)) {
+          logPath = potentialPath;
+          break;
+        }
+      }
+    }
+    
+    // If domain specified but no domain log file found
+    if (domain && !fs.existsSync(getDomainLogPath(domain)) && !options.logPath) {
+      console.log(chalk.yellow(`No specific log file found for domain: ${domain}`));
+      
+      // Try to create domain directory structure and suggest reloading Caddy
+      const domainDir = getDomainDir(domain);
+      const domainLogsDir = getDomainLogsDir(domain);
+      
+      if (!fs.existsSync(domainDir)) {
+        shell.mkdir('-p', domainDir);
+        console.log(chalk.green(`Created domain directory at ${domainDir}`));
+      }
+      
+      if (!fs.existsSync(domainLogsDir)) {
+        shell.mkdir('-p', domainLogsDir);
+        console.log(chalk.green(`Created domain logs directory at ${domainLogsDir}`));
+      }
+      
+      console.log(chalk.blue(`This domain may have been added before domain-specific logging was enabled.`));
+      console.log(chalk.green(`Falling back to global log file: ${logPath || DEFAULT_LOG_FILE}`));
+      console.log(chalk.yellow(`Consider updating your Caddyfile to use domain-specific logging:`));
+      console.log(chalk.green(`
+${domain} {
+  log {
+    output file ${getDomainLogPath(domain)}
+    format console
+  }
+  ...other directives...
+}
+      `));
+      console.log(chalk.yellow(`Then reload Caddy with: caddy reload --config ${CADDYFILE_PATH}`));
+    }
+    
+    // If no log file found
+    if (!logPath || !fs.existsSync(logPath)) {
+      console.log(chalk.red('No Caddy log file found.'));
+      console.log(chalk.yellow('Caddy logs have been configured but the log file does not exist yet.'));
+      console.log(chalk.blue('This usually means Caddy needs to be restarted or hasn\'t received any requests.'));
+      console.log(chalk.yellow('Try restarting Caddy:'));
+      console.log(chalk.green('cpm stop && cpm start'));
+      return;
+    }
+    
+    // Prepare commands
+    const tailArgs = options.follow ? ['-f', logPath] : ['-n', options.lines, logPath];
+    const grepArgs = domain && logPath !== getDomainLogPath(domain) ? ['-i', domain] : [];
+    
+    console.log(chalk.yellow(`Showing logs${domain ? ` for ${domain}` : ''} from ${logPath}...`));
+    
+    // Start the tail process
+    const tail = spawn('tail', tailArgs);
+    let lastProcess = tail;
+
+    // Start the grep process if needed
+    let grep;
+    if (grepArgs.length > 0) {
+      grep = spawn('grep', grepArgs);
+      lastProcess.stdout.pipe(grep.stdin);
+      lastProcess = grep;
+    }
+
+    // Pipe the final output to the main process stdout
+    lastProcess.stdout.pipe(process.stdout);
+
+    // Handle errors
+    tail.stderr.on('data', (data) => console.error(chalk.red(`Tail error: ${data}`)));
+    if (grep) grep.stderr.on('data', (data) => console.error(chalk.red(`Grep error: ${data}`)));
+
+    // Handle process exits
+    const cleanup = () => {
+      if (!tail.killed) tail.kill();
+      if (grep && !grep.killed) grep.kill();
+    };
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+    
+    lastProcess.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        console.error(chalk.red(`Log process exited with code ${code}`));
+      }
+      cleanup(); // Ensure all processes are killed on exit
+    });
+
+  });
+
+// Command: Enable logs for a domain
+program
+  .command('logs:enable <domain>')
+  .description('Enable domain-specific logs')
+  .action((domain) => {
+    try {
+      // Read the Caddyfile content
+      let caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
+      
+      // Extract the domain's block from the Caddyfile
+      const domainRegex = new RegExp(`(${domain}\\s*\\{[^}]*\\})`, 's');
+      const match = caddyfileContent.match(domainRegex);
+      
+      if (!match) {
+        console.log(chalk.red(`Domain "${domain}" not found in Caddyfile.`));
+        return;
+      }
+      
+      const domainBlock = match[1];
+      
+      // Check if log directive already exists
+      if (domainBlock.includes('log {')) {
+        console.log(chalk.blue(`Domain ${domain} already has logging configured.`));
+        return;
+      }
+      
+      // Create domain logs directory if it doesn't exist
+      const domainDir = getDomainDir(domain);
+      const domainLogsDir = getDomainLogsDir(domain);
+      const domainLogPath = getDomainLogPath(domain);
+      
+      if (!fs.existsSync(domainDir)) {
+        shell.mkdir('-p', domainDir);
+        console.log(chalk.green(`Created domain directory at ${domainDir}`));
+      }
+      
+      if (!fs.existsSync(domainLogsDir)) {
+        shell.mkdir('-p', domainLogsDir);
+        console.log(chalk.green(`Created domain logs directory at ${domainLogsDir}`));
+      }
+      
+      // Add log directive right after domain declaration
+      const updatedBlock = domainBlock.replace(
+        new RegExp(`(${domain}\\s*\\{)`, 's'),
+        `$1\n  log {\n    output file ${domainLogPath}\n    format console\n  }`
+      );
+      
+      // Replace the old block with the updated one
+      caddyfileContent = caddyfileContent.replace(domainRegex, updatedBlock);
+      fs.writeFileSync(CADDYFILE_PATH, caddyfileContent);
+      
+      console.log(chalk.green(`Enabling logs for domain: ${domain}`));
+      console.log(chalk.green(`Domain logs will be written to ${domainLogPath}`));
+      
+      // Format and reload Caddy
+      reloadCaddy();
+      
+    } catch (error) {
+      console.error(chalk.red(`Error enabling logs for domain ${domain}: ${error.message}`));
+    }
+  });
+
+// Command: Disable logs for a domain
+program
+  .command('logs:disable <domain>')
+  .description('Disable domain-specific logs')
+  .action((domain) => {
+    try {
+      // Read the Caddyfile content
+      let caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
+      
+      // Extract the domain's block from the Caddyfile
+      const domainRegex = new RegExp(`(${domain}\\s*\\{[^}]*\\})`, 's');
+      const match = caddyfileContent.match(domainRegex);
+      
+      if (!match) {
+        console.log(chalk.red(`Domain "${domain}" not found in Caddyfile.`));
+        return;
+      }
+      
+      const domainBlock = match[1];
+      
+      // Check if log directive exists
+      if (!domainBlock.includes('log {')) {
+        console.log(chalk.blue(`Domain ${domain} does not have logging configured.`));
+        return;
+      }
+      
+      // Remove log directive
+      const updatedBlock = domainBlock.replace(/\s*log\s*\{[^}]*\}/s, '');
+      
+      // Replace the old block with the updated one
+      caddyfileContent = caddyfileContent.replace(domainRegex, updatedBlock);
+      fs.writeFileSync(CADDYFILE_PATH, caddyfileContent);
+      
+      console.log(chalk.yellow(`Disabling logs for domain: ${domain}`));
+      
+      // Format and reload Caddy
+      reloadCaddy();
+      
+    } catch (error) {
+      console.error(chalk.red(`Error disabling logs for domain ${domain}: ${error.message}`));
+    }
   });
 
 // Command: Add multiple proxies from a YAML file
@@ -631,14 +928,14 @@ program
 _cpm_completion() {
   local cur prev opts
   COMPREPLY=()
-  cur="${COMP_WORDS[COMP_CWORD]}"
-  prev="${COMP_WORDS[COMP_CWORD-1]}"
+  cur="\${COMP_WORDS[COMP_CWORD]}"
+  prev="\${COMP_WORDS[COMP_CWORD-1]}"
   
   # Basic commands
-  opts="add backup bulk completion help logs ls ports restore rm start status stop"
+  opts="add backup bulk completion help logs logs:enable logs:disable ls ports restore rm start status stop"
   
   # Complete command options based on the command
-  case "${prev}" in
+  case "\${prev}" in
     add)
       # No completion for domain, it's user input
       return 0
@@ -646,19 +943,19 @@ _cpm_completion() {
     rm)
       # Attempt to complete domain from Caddyfile
       local domains=$(grep -o '^[^ ]*' ${CADDYFILE_PATH} | grep -v '^$')
-      COMPREPLY=( $(compgen -W "${domains}" -- ${cur}) )
+      COMPREPLY=( $(compgen -W "\${domains}" -- \${cur}) )
       return 0
       ;;
-    logs)
+    logs|logs:enable|logs:disable)
       local domains=$(grep -o '^[^ ]*' ${CADDYFILE_PATH} | grep -v '^$')
-      COMPREPLY=( $(compgen -W "${domains}" -- ${cur}) )
+      COMPREPLY=( $(compgen -W "\${domains}" -- \${cur}) )
       return 0
       ;;
     *)
       ;;
   esac
   
-  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+  COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
   return 0
 }
 
