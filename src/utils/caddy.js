@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import { spawn } from 'child_process';
 import { CADDY_CONFIG_PATH } from '../config/constants.js';
 import { validateCertificates } from './ssl.js';
+import { execSudo } from './sudo.js';
 
 /**
  * Reloads Caddy with the specified config file
@@ -91,7 +92,7 @@ export function getCaddyProcessInfo() {
  */
 export function getCaddyConnections() {
   try {
-    const result = shell.exec('sudo lsof -p $(pgrep -x caddy) | grep -c TCP', {
+    const result = shell.exec('lsof -p $(pgrep -x caddy) | grep -c TCP', {
       silent: true,
     });
     return result.stdout.trim();
