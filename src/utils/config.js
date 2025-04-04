@@ -173,17 +173,46 @@ export function getProxies() {
 }
 
 /**
+ * Checks if a domain already exists in the Caddy configuration
+ * @param {string} domain - Domain name to check
+ * @returns {boolean} True if domain exists, false otherwise
+ */
+export function domainExistsInConfig(domain) {
+  const config = readConfig();
+  if (!config?.apps?.http?.servers?.main?.routes) {
+    return false;
+  }
+
+  const routes = config.apps.http.servers.main.routes;
+  return routes.some(route => 
+    route.match && 
+    Array.isArray(route.match) && 
+    route.match[0]?.host && 
+    Array.isArray(route.match[0].host) && 
+    route.match[0].host.includes(domain)
+  );
+}
+
+/**
  * Adds a new proxy configuration
  * @param {string} domain - Domain name
  * @param {number} port - Target port
  * @param {Object} options - Additional options
+ * @returns {boolean} True if proxy was added, false if it already exists
  */
 export function addProxy(domain, port, options = {}) {
+  // First check if domain already exists
+  if (domainExistsInConfig(domain)) {
+    console.log(chalk.yellow(`Domain ${domain} already exists in Caddy configuration.`));
+    return false;
+  }
+
   const config = readConfig();
   const route = createRouteConfig(domain, port, options);
   
   config.apps.http.servers.main.routes.push(route);
   writeConfig(config);
+  return true;
 }
 
 /**

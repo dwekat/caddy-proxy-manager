@@ -25,10 +25,15 @@ program
       }
 
       // Add proxy configuration
-      addProxy(domain, parseInt(targetPort, 10), {
+      const proxyAdded = addProxy(domain, parseInt(targetPort, 10), {
         enableLogging: true,
         ...tlsOptions
       });
+      
+      if (!proxyAdded) {
+        console.log(chalk.yellow(`Skipping domain ${domain} as it already exists.`));
+        return;
+      }
       
       console.log(chalk.green(`Added proxy for ${domain}`));
 
