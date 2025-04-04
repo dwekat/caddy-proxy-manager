@@ -8,10 +8,14 @@ import fs from 'fs';
 import path from 'path';
 import Table from 'cli-table3';
 import { spawn } from 'child_process';
+import yaml from 'js-yaml';
+import { fileURLToPath } from 'url';
+import ora from 'ora';
 
 const CADDYFILE_PATH = path.join(process.env.HOME, '.caddy', 'Caddyfile');
 const HOSTS_FILE = '/etc/hosts';
 const CERTS_PATH = path.join(process.env.HOME, '.caddy', 'certs');
+const DEFAULT_BACKUP_PATH = './cpm-backup.yml';
 
 // Host block markers
 const HOSTS_BLOCK_START = '# cpm-managed block - start';
@@ -65,7 +69,7 @@ function checkMkcert() {
   }
 }
 
-// Function to ensure mkcert’s local CA is installed
+// Function to ensure mkcert's local CA is installed
 function ensureLocalCA() {
   const certPath = path.join(shell.env.HOME, 'Library/Application Support/mkcert');
   if (!fs.existsSync(certPath)) {
@@ -122,11 +126,133 @@ function reloadCaddy() {
   }
 }
 
+// Function to perform health check on a domain
+async function checkDomainHealth(domain, port) {
+  try {
+    const url = `https://${domain}`;
+    const spinner = ora(`Checking ${url}...`).start();
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        // Skip certificate validation for self-signed certs
+        agent: function(_parsedURL) {
+          return { rejectUnauthorized: false };
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        spinner.succeed(`${url} is ${chalk.green('UP')}`);
+        return true;
+      } else {
+        spinner.fail(`${url} returned status ${response.status}`);
+        return false;
+      }
+    } catch (error) {
+      spinner.fail(`${url} is ${chalk.red('DOWN')} - ${error.message}`);
+      return false;
+    }
+  } catch (error) {
+    console.error(chalk.red(`Error checking ${domain}: ${error.message}`));
+    return false;
+  }
+}
+
+// Function to check if port is in use
+function isPortInUse(port) {
+  const result = shell.exec(`lsof -i :${port} -t`, { silent: true });
+  return result.code === 0;
+}
+
+// Function to get process using a port
+function getProcessForPort(port) {
+  const result = shell.exec(`lsof -i :${port} -P -n`, { silent: true });
+  if (result.code === 0) {
+    const lines = result.stdout.trim().split('\n');
+    if (lines.length > 1) {
+      const parts = lines[1].split(/\s+/);
+      return {
+        pid: parts[1],
+        name: parts[0]
+      };
+    }
+  }
+  return null;
+}
+
+// Parse Caddyfile to get proxy configurations
+function parseProxyConfigs() {
+  try {
+    const caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
+    
+    if (!caddyfileContent.trim()) {
+      return [];
+    }
+    
+    const proxies = [];
+    const proxyBlocks = caddyfileContent.split(/\n\n+/);
+    
+    proxyBlocks.forEach((block) => {
+      const domainMatch = block.match(/^(\S+)\s*\{/);
+      const portMatch = block.match(/reverse_proxy http:\/\/127\.0\.0\.1:(\d+)/);
+      const tlsEnabled = block.includes('tls');
+      
+      if (domainMatch && portMatch) {
+        proxies.push({
+          domain: domainMatch[1],
+          port: portMatch[1],
+          ssl: tlsEnabled
+        });
+      }
+    });
+    
+    return proxies;
+  } catch (error) {
+    console.error(chalk.red(`Error parsing Caddyfile: ${error.message}`));
+    return [];
+  }
+}
+
+// Get Caddy process information
+function getCaddyProcessInfo() {
+  const pidResult = shell.exec('pgrep -x caddy', { silent: true });
+  
+  if (pidResult.code !== 0) {
+    return null;
+  }
+  
+  const pid = pidResult.stdout.trim();
+  const uptimeResult = shell.exec(`ps -p ${pid} -o etime=`, { silent: true });
+  const memoryResult = shell.exec(`ps -p ${pid} -o %mem=`, { silent: true });
+  
+  return {
+    pid,
+    uptime: uptimeResult.stdout.trim(),
+    memory: memoryResult.stdout.trim() + '%'
+  };
+}
+
+// Function to get Caddy active connections
+function getCaddyConnections() {
+  try {
+    const result = shell.exec('sudo lsof -p $(pgrep -x caddy) | grep -c TCP', { silent: true });
+    return result.stdout.trim();
+  } catch (error) {
+    return 'Unknown';
+  }
+}
+
 // Command: List all proxies
 program
   .command('ls')
   .description('List all proxies')
-  .action(() => {
+  .option('--health', 'Include health check information')
+  .action(async (options) => {
     const caddyfileContent = fs.readFileSync(CADDYFILE_PATH, 'utf-8');
 
     if (!caddyfileContent.trim()) {
@@ -134,15 +260,23 @@ program
       return;
     }
 
+    const tableHeaders = options.health 
+      ? [chalk.blue('Domain'), chalk.blue('Port'), chalk.blue('Custom SSL'), chalk.blue('Health'), chalk.blue('Port Status')]
+      : [chalk.blue('Domain'), chalk.blue('Port'), chalk.blue('Custom SSL')];
+    
+    const colWidths = options.health 
+      ? [30, 10, 15, 15, 20]
+      : [30, 10, 15];
+
     const table = new Table({
-      head: [chalk.blue('Domain'), chalk.blue('Port'), chalk.blue('Custom SSL')],
-      colWidths: [30, 10, 15],
+      head: tableHeaders,
+      colWidths: colWidths,
     });
 
     // Parse proxy configurations by looking for domain blocks in the Caddyfile
     const proxyBlocks = caddyfileContent.split(/\n\n+/);  // Split by double newlines for each block
-
-    proxyBlocks.forEach((block) => {
+    
+    for (const block of proxyBlocks) {
       const domainMatch = block.match(/^(\S+)\s*\{/);  // Match the domain name at the start of each block
       const portMatch = block.match(/reverse_proxy http:\/\/127\.0\.0\.1:(\d+)/);  // Match port in reverse_proxy directive
       const tlsEnabled = block.includes('tls');  // Check if tls directive is in the block
@@ -150,9 +284,23 @@ program
       if (domainMatch && portMatch) {
         const domain = domainMatch[1];
         const port = portMatch[1];
-        table.push([domain, port, tlsEnabled ? 'Yes' : 'No']);
+        
+        if (options.health) {
+          // Add port status check
+          const portStatus = isPortInUse(port) 
+            ? chalk.green('LISTENING') 
+            : chalk.red('NOT LISTENING');
+          
+          // Perform health check if requested
+          const healthStatus = await checkDomainHealth(domain, port);
+          const healthText = healthStatus ? chalk.green('HEALTHY') : chalk.red('UNHEALTHY');
+          
+          table.push([domain, port, tlsEnabled ? 'Yes' : 'No', healthText, portStatus]);
+        } else {
+          table.push([domain, port, tlsEnabled ? 'Yes' : 'No']);
+        }
       }
-    });
+    }
 
     console.log(table.toString());
   });
@@ -232,6 +380,70 @@ program
     reloadCaddy();
   });
 
+// Command: Backup proxies to a YAML file
+program
+  .command('backup')
+  .description('Backup proxies to a YAML file')
+  .option('-o, --out <file>', 'Output file path', DEFAULT_BACKUP_PATH)
+  .action((options) => {
+    const proxies = parseProxyConfigs();
+    
+    if (proxies.length === 0) {
+      console.log(chalk.yellow('No proxies found to backup.'));
+      return;
+    }
+    
+    try {
+      const backupData = {
+        timestamp: new Date().toISOString(),
+        caddyfilePath: CADDYFILE_PATH,
+        proxies
+      };
+      
+      const yamlStr = yaml.dump(backupData);
+      fs.writeFileSync(options.out, yamlStr, 'utf8');
+      console.log(chalk.green(`Successfully backed up ${proxies.length} proxies to ${options.out}`));
+    } catch (error) {
+      console.error(chalk.red(`Failed to backup proxies: ${error.message}`));
+    }
+  });
+
+// Command: Restore proxies from a YAML file
+program
+  .command('restore')
+  .description('Restore proxies from a YAML file')
+  .option('-f, --file <file>', 'Input file path', DEFAULT_BACKUP_PATH)
+  .action((options) => {
+    try {
+      if (!fs.existsSync(options.file)) {
+        console.error(chalk.red(`Backup file not found: ${options.file}`));
+        return;
+      }
+      
+      const fileContents = fs.readFileSync(options.file, 'utf8');
+      const backupData = yaml.load(fileContents);
+      
+      if (!backupData.proxies || !Array.isArray(backupData.proxies)) {
+        console.error(chalk.red('Invalid backup file format.'));
+        return;
+      }
+      
+      // Clear existing Caddyfile
+      fs.writeFileSync(CADDYFILE_PATH, '', 'utf8');
+      
+      // Add each proxy from the backup
+      backupData.proxies.forEach(proxy => {
+        const options = { customCert: proxy.ssl };
+        program.commands.find(cmd => cmd._name === 'add')
+          ._actionHandler(proxy.domain, proxy.port, options);
+      });
+      
+      console.log(chalk.green(`Successfully restored ${backupData.proxies.length} proxies from ${options.file}`));
+    } catch (error) {
+      console.error(chalk.red(`Failed to restore proxies: ${error.message}`));
+    }
+  });
+
 // Command: Start Caddy in the background
 program
   .command('start')
@@ -262,21 +474,260 @@ program
     }
   });
 
-// Command: Check Caddy status
+// Command: Check port status
+program
+  .command('ports')
+  .description('Check status of ports used by proxies')
+  .action(() => {
+    const proxies = parseProxyConfigs();
+    
+    if (proxies.length === 0) {
+      console.log(chalk.yellow('No proxies found.'));
+      return;
+    }
+    
+    const table = new Table({
+      head: [chalk.blue('Domain'), chalk.blue('Port'), chalk.blue('Status'), chalk.blue('Process')],
+      colWidths: [30, 10, 15, 30],
+    });
+    
+    proxies.forEach(proxy => {
+      const port = proxy.port;
+      const isUsed = isPortInUse(port);
+      const process = getProcessForPort(port);
+      
+      table.push([
+        proxy.domain,
+        port,
+        isUsed ? chalk.green('IN USE') : chalk.red('NOT IN USE'),
+        process ? `${process.name} (PID: ${process.pid})` : 'N/A'
+      ]);
+    });
+    
+    console.log(table.toString());
+  });
+
+// Command: View logs for a domain
+program
+  .command('logs [domain]')
+  .description('View Caddy logs, optionally filtered by domain')
+  .option('-f, --follow', 'Follow log output')
+  .option('-n, --lines <lines>', 'Number of lines to show', '100')
+  .action((domain, options) => {
+    const logPath = '/var/log/caddy/access.log';
+    let grepCmd = domain ? `grep -i "${domain}"` : 'cat';
+    let tailCmd = options.follow ? 'tail -f' : `tail -n ${options.lines}`;
+    
+    console.log(chalk.yellow(`Showing logs${domain ? ` for ${domain}` : ''}...`));
+    
+    const cmd = `${tailCmd} ${logPath} | ${grepCmd}`;
+    shell.exec(cmd, { async: options.follow });
+  });
+
+// Command: Add multiple proxies from a YAML file
+program
+  .command('bulk')
+  .description('Add multiple proxies from a YAML file')
+  .option('-f, --file <file>', 'YAML file with proxy configurations')
+  .action((options) => {
+    if (!options.file) {
+      console.error(chalk.red('Please specify a YAML file using --file option.'));
+      return;
+    }
+    
+    try {
+      if (!fs.existsSync(options.file)) {
+        console.error(chalk.red(`File not found: ${options.file}`));
+        return;
+      }
+      
+      const fileContents = fs.readFileSync(options.file, 'utf8');
+      const config = yaml.load(fileContents);
+      
+      if (!config.proxies || !Array.isArray(config.proxies)) {
+        console.error(chalk.red('Invalid configuration file format. Expected "proxies" array.'));
+        return;
+      }
+      
+      console.log(chalk.blue(`Adding ${config.proxies.length} proxies...`));
+      
+      config.proxies.forEach(proxy => {
+        if (!proxy.domain || !proxy.port) {
+          console.error(chalk.red(`Skipping invalid proxy: ${JSON.stringify(proxy)}`));
+          return;
+        }
+        
+        const cmdOptions = { customCert: proxy.useCustomCert };
+        program.commands.find(cmd => cmd._name === 'add')
+          ._actionHandler(proxy.domain, proxy.port, cmdOptions);
+      });
+      
+      console.log(chalk.green('Bulk operation completed.'));
+    } catch (error) {
+      console.error(chalk.red(`Failed to process bulk operation: ${error.message}`));
+    }
+  });
+
+// Command: Enhanced status command
 program
   .command('status')
-  .description('Check if the Caddy server is running')
+  .description('Show detailed Caddy server status')
   .action(() => {
     try {
+      // Check if Caddy is running
       const result = shell.exec('pgrep -x caddy', { silent: true });
-
-      if (result.code === 0) {
-        console.log(chalk.green('Caddy is running.'));
-      } else {
+      
+      if (result.code !== 0) {
         console.log(chalk.red('Caddy is not running.'));
+        return;
       }
+      
+      // Get process information
+      const processInfo = getCaddyProcessInfo();
+      
+      if (!processInfo) {
+        console.log(chalk.red('Could not retrieve Caddy process information.'));
+        return;
+      }
+      
+      // Get active connections
+      const connections = getCaddyConnections();
+      
+      // Create status table
+      const table = new Table();
+      
+      table.push(
+        { 'Status': chalk.green('RUNNING') },
+        { 'PID': processInfo.pid },
+        { 'Uptime': processInfo.uptime },
+        { 'Memory Usage': processInfo.memory },
+        { 'Active Connections': connections },
+        { 'Caddyfile': CADDYFILE_PATH }
+      );
+      
+      console.log(table.toString());
+      
+      // Show proxy count
+      const proxies = parseProxyConfigs();
+      console.log(chalk.blue(`Managing ${proxies.length} proxies.`));
+      
     } catch (error) {
       console.error(chalk.red('Error while checking Caddy status:'), error.message);
+    }
+  });
+
+// Setup command completion
+program
+  .command('completion')
+  .description('Generate shell completion script')
+  .option('--no-install', 'Generate script without installing it')
+  .action((options) => {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const completionPath = path.join(__dirname, 'completion.sh');
+    
+    // Generate completion script
+    const completionScript = `
+# cpm shell completion
+_cpm_completion() {
+  local cur prev opts
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+  
+  # Basic commands
+  opts="add backup bulk completion help logs ls ports restore rm start status stop"
+  
+  # Complete command options based on the command
+  case "${prev}" in
+    add)
+      # No completion for domain, it's user input
+      return 0
+      ;;
+    rm)
+      # Attempt to complete domain from Caddyfile
+      local domains=$(grep -o '^[^ ]*' ${CADDYFILE_PATH} | grep -v '^$')
+      COMPREPLY=( $(compgen -W "${domains}" -- ${cur}) )
+      return 0
+      ;;
+    logs)
+      local domains=$(grep -o '^[^ ]*' ${CADDYFILE_PATH} | grep -v '^$')
+      COMPREPLY=( $(compgen -W "${domains}" -- ${cur}) )
+      return 0
+      ;;
+    *)
+      ;;
+  esac
+  
+  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+  return 0
+}
+
+complete -F _cpm_completion cpm
+`;
+    
+    fs.writeFileSync(completionPath, completionScript, 'utf8');
+    console.log(chalk.green(`Completion script generated at: ${completionPath}`));
+    
+    // If the install option is false, just print instructions and exit
+    if (!options.install) {
+      console.log(chalk.yellow('Add the following line to your shell config:'));
+      console.log(chalk.blue(`source ${completionPath}`));
+      return;
+    }
+    
+    // Detect user's shell
+    const userShell = process.env.SHELL || '/bin/bash';
+    const shellName = path.basename(userShell);
+    
+    // Determine the appropriate config file
+    let configFile;
+    let shellConfigFiles = {
+      'bash': ['.bashrc', '.bash_profile'],
+      'zsh': ['.zshrc'],
+      'fish': ['.config/fish/config.fish']
+    };
+    
+    let configFiles = shellConfigFiles[shellName] || ['.bashrc'];
+    
+    // Find the first existing config file
+    for (const file of configFiles) {
+      const fullPath = path.join(process.env.HOME, file);
+      if (fs.existsSync(fullPath)) {
+        configFile = fullPath;
+        break;
+      }
+    }
+    
+    if (!configFile) {
+      console.log(chalk.red(`Could not find config file for ${shellName}. Using default.`));
+      configFile = path.join(process.env.HOME, configFiles[0]);
+    }
+    
+    // Line to add to config
+    const sourceLine = `source ${completionPath}`;
+    
+    try {
+      // Check if line already exists in config
+      let configContent = '';
+      if (fs.existsSync(configFile)) {
+        configContent = fs.readFileSync(configFile, 'utf8');
+      }
+      
+      if (configContent.includes(sourceLine)) {
+        console.log(chalk.green(`Completion already installed in ${configFile}`));
+        return;
+      }
+      
+      // Add the line to the config file
+      const appendContent = `\n# Added by caddy-proxy-manager\n${sourceLine}\n`;
+      fs.appendFileSync(configFile, appendContent, 'utf8');
+      
+      console.log(chalk.green(`✅ Completion installed in ${configFile}`));
+      console.log(chalk.yellow(`To use completion in current shell, run: ${sourceLine}`));
+    } catch (error) {
+      console.error(chalk.red(`Error installing completion: ${error.message}`));
+      console.log(chalk.yellow('Add the following line to your shell config manually:'));
+      console.log(chalk.blue(sourceLine));
     }
   });
 
