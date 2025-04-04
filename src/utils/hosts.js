@@ -10,10 +10,41 @@ export function ensureHostsBlock() {
   return new Promise((resolve, reject) => {
     const command = `grep -q "${HOSTS_BLOCK_START}" ${HOSTS_FILE} || echo -e "\\n${HOSTS_BLOCK_START}\\n${HOSTS_BLOCK_END}" >> ${HOSTS_FILE}`;
     execSudo(command)
-      .then(() => resolve())
+      .then((result) => resolve())
       .catch((error) => {
         console.error(chalk.red(`Failed to ensure cpm block in hosts file: ${error}`));
         reject(error);
+      });
+  });
+}
+
+/**
+ * Checks if a domain already exists in the hosts file
+ * @param {string} domain - The domain to check
+ * @returns {Promise<boolean>} - True if domain exists, false otherwise
+ */
+export function domainExistsInHosts(domain) {
+  return new Promise((resolve, reject) => {
+    const checkCommand = `grep -q "127.0.0.1 ${domain}" ${HOSTS_FILE}`;
+    console.log(chalk.blue(`Checking if domain exists: ${domain}`));
+    
+    execSudo(checkCommand)
+      .then((result) => {
+        // grep returns exit code 0 if match found, 1 if no match
+        const exists = result.exitCode === 0;
+        
+        if (exists) {
+          console.log(chalk.blue(`Domain ${domain} exists in hosts file.`));
+          resolve(true);
+        } else {
+          console.log(chalk.blue(`Domain ${domain} does not exist in hosts file.`));
+          resolve(false);
+        }
+      })
+      .catch((error) => {
+        console.error(chalk.red(`Error checking domain existence: ${error.message}`));
+        // In case of error, assume domain doesn't exist to be safe
+        resolve(false);
       });
   });
 }
@@ -24,26 +55,33 @@ export function ensureHostsBlock() {
  * @returns {Promise<void>}
  */
 export function addDomainToHosts(domain) {
-  return ensureHostsBlock().then(() => {
-    return new Promise((resolve, reject) => {
-      const hostEntry = `127.0.0.1 ${domain}`;
-      const combinedCommand = `
-        sed -i '' '/${HOSTS_BLOCK_START}/a\\
+  return ensureHostsBlock()
+    .then(() => domainExistsInHosts(domain))
+    .then((exists) => {
+      if (exists) {
+        console.log(chalk.yellow(`Domain ${domain} already exists in hosts file.`));
+        return Promise.resolve();
+      }
+      
+      return new Promise((resolve, reject) => {
+        const hostEntry = `127.0.0.1 ${domain}`;
+        const combinedCommand = `
+          sed -i '' '/${HOSTS_BLOCK_START}/a\\
 ${hostEntry}\\
 ' ${HOSTS_FILE}
-      `;
+        `;
 
-      execSudo(combinedCommand)
-        .then(() => {
-          console.log(chalk.green(`Added ${domain} to hosts file.`));
-          resolve();
-        })
-        .catch((error) => {
-          console.error(chalk.red(`Failed to add domain to hosts file: ${error}`));
-          reject(error);
-        });
+        execSudo(combinedCommand)
+          .then((result) => {
+            console.log(chalk.green(`Added ${domain} to hosts file.`));
+            resolve();
+          })
+          .catch((error) => {
+            console.error(chalk.red(`Failed to add domain to hosts file: ${error}`));
+            reject(error);
+          });
+      });
     });
-  });
 }
 
 /**
@@ -55,7 +93,7 @@ export function removeDomainFromHosts(domain) {
   return new Promise((resolve, reject) => {
     const removeHostEntry = `sed -i '' '/^127.0.0.1 ${domain}$/d' ${HOSTS_FILE}`;
     execSudo(removeHostEntry)
-      .then(() => {
+      .then((result) => {
         console.log(chalk.green(`Removed ${domain} from hosts file.`));
         resolve();
       })
