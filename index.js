@@ -346,19 +346,31 @@ program
 
     const tableHeaders = options.health
       ? [
-        chalk.blue('Domain'),
-        chalk.blue('Port'),
-        chalk.blue('Custom SSL'),
-        chalk.blue('Health'),
-        chalk.blue('Port Status'),
+        chalk.blue('DOMAIN'),
+        chalk.blue('PORT'),
+        chalk.blue('CUSTOM_SSL'),
+        chalk.blue('HEALTH'),
+        chalk.blue('PORT_STATUS'),
       ]
-      : [chalk.blue('Domain'), chalk.blue('Port'), chalk.blue('Custom SSL')];
+      : [chalk.blue('DOMAIN'), chalk.blue('PORT'), chalk.blue('CUSTOM_SSL')];
 
-    const colWidths = options.health ? [30, 10, 15, 15, 20] : [30, 10, 15];
+    const colWidths = options.health ? [35, 8, 12, 12, 18] : [35, 8, 12];
 
     const table = new Table({
       head: tableHeaders,
       colWidths: colWidths,
+      chars: {
+        'top': '', 'top-mid': '', 'top-left': '', 'top-right': '',
+        'bottom': '', 'bottom-mid': '', 'bottom-left': '', 'bottom-right': '',
+        'left': '', 'left-mid': '', 'mid': '', 'mid-mid': '',
+        'right': '', 'right-mid': '', 'middle': ' '
+      },
+      style: {
+        'padding-left': 1,
+        'padding-right': 1,
+        head: ['blue'],
+        border: []
+      }
     });
 
     // Parse proxy configurations by looking for domain blocks in the Caddyfile
