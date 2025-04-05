@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { CADDY_CONFIG_PATH, DEFAULT_CONFIG } from '../config/constants.js';
+import { CADDY_CONFIG_PATH, DEFAULT_CONFIG, CERTS_PATH } from '../config/constants.js';
 
 /**
  * Ensures the Caddy config file exists with default configuration
@@ -17,6 +17,9 @@ export function ensureConfig() {
     fs.writeFileSync(CADDY_CONFIG_PATH, JSON.stringify(DEFAULT_CONFIG, null, 2));
     return DEFAULT_CONFIG;
   }
+
+  // Clean up any stale certificate references
+  cleanupCertificateReferences();
 
   return readConfig();
 }
@@ -46,6 +49,45 @@ export function writeConfig(config) {
     fs.writeFileSync(CADDY_CONFIG_PATH, JSON.stringify(config, null, 2));
   } catch (error) {
     throw new Error(`Failed to write config: ${error.message}`);
+  }
+}
+
+/**
+ * Cleans up any stale certificate references in the config
+ */
+export function cleanupCertificateReferences() {
+  try {
+    const config = readConfig();
+    
+    // If there's no TLS configuration, nothing to clean up
+    if (!config?.apps?.tls?.certificates?.load_files) {
+      return;
+    }
+    
+    const loadFiles = config.apps.tls.certificates.load_files;
+    
+    // If load_files isn't an array or is empty, nothing to clean up
+    if (!Array.isArray(loadFiles) || loadFiles.length === 0) {
+      return;
+    }
+    
+    // Filter out certificates where files don't exist
+    const validCerts = loadFiles.filter(cert => {
+      if (!cert.certificate || !cert.key) {
+        return false;
+      }
+      
+      return fs.existsSync(cert.certificate) && fs.existsSync(cert.key);
+    });
+    
+    // If any certs were filtered out, update the config
+    if (validCerts.length !== loadFiles.length) {
+      console.log(chalk.yellow(`Cleaned up ${loadFiles.length - validCerts.length} stale certificate references`));
+      config.apps.tls.certificates.load_files = validCerts;
+      writeConfig(config);
+    }
+  } catch (error) {
+    console.error(chalk.red(`Error cleaning up certificates: ${error.message}`));
   }
 }
 
@@ -244,15 +286,26 @@ export function addProxy(domain, port, options = {}) {
       config.apps.tls.certificates = {};
     }
     
-    // Initialize load_files as an array
+    // Create certificate config for this domain
     const certConfig = {
       certificate: options.tlsCertPath,
       key: options.tlsKeyPath,
       tags: [domain]
     };
     
-    // Set load_files as an array with our certificate
-    config.apps.tls.certificates.load_files = [certConfig];
+    // Get existing certificates or initialize an empty array
+    let loadFiles = config.apps.tls.certificates.load_files || [];
+    
+    // If load_files isn't an array, initialize it
+    if (!Array.isArray(loadFiles)) {
+      loadFiles = [];
+    }
+    
+    // Add the new certificate to the array of certificates
+    loadFiles.push(certConfig);
+    
+    // Update the configuration
+    config.apps.tls.certificates.load_files = loadFiles;
   }
   
   writeConfig(config);
@@ -273,13 +326,28 @@ export function removeProxy(domain) {
     route.match[0].host[0] !== domain
   );
   
-  if (filteredRoutes.length !== initialLength) {
+  let domainRemoved = filteredRoutes.length !== initialLength;
+  
+  if (domainRemoved) {
+    // Update the routes
     config.apps.http.servers.main.routes = filteredRoutes;
+    
+    // Also remove any TLS certificate entries for this domain
+    if (config.apps?.tls?.certificates?.load_files) {
+      const loadFiles = config.apps.tls.certificates.load_files;
+      
+      if (Array.isArray(loadFiles) && loadFiles.length > 0) {
+        // Filter out any certificate entries that contain this domain in their tags
+        config.apps.tls.certificates.load_files = loadFiles.filter(cert => 
+          !cert.tags || !Array.isArray(cert.tags) || !cert.tags.includes(domain)
+        );
+      }
+    }
+    
     writeConfig(config);
-    return true;
   }
   
-  return false;
+  return domainRemoved;
 }
 
 /**

@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import { CADDY_CONFIG_PATH } from '../config/constants.js';
 import { validateCertificates } from './ssl.js';
 import { execSudo } from './sudo.js';
+import { cleanupCertificateReferences } from './config.js';
 
 /**
  * Reloads Caddy with the specified config file
@@ -12,6 +13,9 @@ import { execSudo } from './sudo.js';
  */
 export async function reloadCaddy() {
   console.log(chalk.yellow('Reloading Caddy with JSON config...'));
+  
+  // Clean up any stale certificate references before reloading
+  cleanupCertificateReferences();
   
   const reloadResult = shell.exec(`caddy reload --config ${CADDY_CONFIG_PATH}`, {
     silent: true
@@ -32,6 +36,9 @@ export async function reloadCaddy() {
  */
 export function startCaddy() {
   console.log(chalk.yellow('Starting Caddy with JSON config...'));
+  
+  // Clean up any stale certificate references before starting
+  cleanupCertificateReferences();
   
   const startResult = shell.exec(`caddy start --config ${CADDY_CONFIG_PATH}`, {
     silent: true
