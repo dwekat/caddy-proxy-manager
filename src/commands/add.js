@@ -8,8 +8,8 @@ import { addProxy } from '../utils/config.js';
 
 program
   .command('add <domain> <targetPort>')
-  .description('Add a new proxy. Use --custom-cert flag to use mkcert-generated certificates.')
-  .option('--custom-cert', 'Use mkcert-generated certificates instead of Caddy internal CA')
+  .description('Add a new proxy. Uses Caddy automatic HTTPS by default.')
+  .option('--custom-cert', 'Use mkcert-generated certificates instead of Caddy automatic CA')
   .action(async (domain, targetPort, options) => {
     try {
       // Create domain-specific directory structure
@@ -22,6 +22,9 @@ program
           tlsCertPath: certificates.cert,
           tlsKeyPath: certificates.key
         };
+        console.log(chalk.green(`Generated mkcert certificate for ${domain}`));
+      } else {
+        console.log(chalk.green(`Using Caddy's automatic certificate authority for ${domain}`));
       }
 
       // Add proxy configuration

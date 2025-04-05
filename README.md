@@ -28,11 +28,21 @@ npm install caddy-proxy-manager
 ### Add a Proxy
 
 ```bash
-# Add a proxy with Caddy's automatic HTTPS
+# Add a proxy with Caddy's automatic HTTPS (default)
 cpm add example.test 3000
 
-# Add a proxy with custom certificates (requires mkcert)
+# Add a proxy with mkcert-generated certificates
 cpm add example.test 3000 --custom-cert
+```
+
+### Certificate Management
+
+```bash
+# Add or update certificate for an existing domain (uses mkcert by default)
+cpm cert example.test
+
+# Add or update with specific certificate files
+cpm cert example.test --cert /path/to/cert.pem --key /path/to/key.pem
 ```
 
 ### Remove a Proxy

@@ -29,12 +29,16 @@ program
           ensureDomainDirectories(proxy.domain);
 
           let tlsOptions = {};
+          // Use custom mkcert certificates if specified
           if (proxy.useCustomCert) {
             const certificates = generateCertificates(proxy.domain);
             tlsOptions = {
               tlsCertPath: certificates.cert,
               tlsKeyPath: certificates.key
             };
+            console.log(chalk.green(`Generated mkcert certificate for ${proxy.domain}`));
+          } else {
+            console.log(chalk.green(`Using Caddy's automatic certificate authority for ${proxy.domain}`));
           }
 
           // Add proxy configuration

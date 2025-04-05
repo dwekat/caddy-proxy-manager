@@ -10,7 +10,7 @@ import { CERTS_PATH } from '../config/constants.js';
  */
 export function checkMkcert() {
   if (!shell.which('mkcert')) {
-    throw new Error('mkcert is not installed. Install with: brew install mkcert && mkcert -install');
+    throw new Error('mkcert is not installed');
   }
 }
 

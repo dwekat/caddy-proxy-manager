@@ -21,7 +21,7 @@ program
         head: [
           chalk.blue('DOMAIN'),
           chalk.blue('PORT'),
-          chalk.blue('CUSTOM_SSL')
+          chalk.blue('SSL')
         ],
         colWidths: [35, 8, 12]
       });
@@ -30,7 +30,7 @@ program
         table.push([
           proxy.domain,
           proxy.port,
-          proxy.ssl ? 'Yes' : 'No'
+          proxy.ssl === 'custom' ? chalk.green('Custom') : chalk.cyan('Auto')
         ]);
       });
 

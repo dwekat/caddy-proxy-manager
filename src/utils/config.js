@@ -158,18 +158,38 @@ export function getProxies() {
   }
 
   const routes = config.apps.http.servers.main.routes;
+  
+  // Get custom certificates with their tags
+  const customCerts = {};
+  const loadFiles = config?.apps?.tls?.certificates?.load_files || [];
+  
+  if (Array.isArray(loadFiles) && loadFiles.length > 0) {
+    loadFiles.forEach(cert => {
+      if (cert.tags && Array.isArray(cert.tags)) {
+        cert.tags.forEach(tag => {
+          customCerts[tag] = true;
+        });
+      }
+    });
+  }
+  
   return routes.map(route => {
     const domain = route.match[0].host[0];
-    const proxyHandle = route.handle[0];
-    const port = proxyHandle.upstreams[0].dial.split(':')[1];
-    const hasTls = route.handle.some(h => h.handler === 'tls');
+    const reversProxyHandler = route.handle.find(h => h.handler === 'reverse_proxy');
+    
+    if (!reversProxyHandler || !reversProxyHandler.upstreams || reversProxyHandler.upstreams.length === 0) {
+      return null;
+    }
+    
+    const port = reversProxyHandler.upstreams[0].dial.split(':')[1];
+    const hasCustomCert = customCerts[domain] || false;
 
     return {
       domain,
       port: parseInt(port, 10),
-      ssl: hasTls
+      ssl: hasCustomCert ? 'custom' : 'auto'
     };
-  });
+  }).filter(Boolean);
 }
 
 /**
@@ -210,7 +230,31 @@ export function addProxy(domain, port, options = {}) {
   const config = readConfig();
   const route = createRouteConfig(domain, port, options);
   
+  // Add the route to the configuration
   config.apps.http.servers.main.routes.push(route);
+
+  // Add TLS configuration if certificate and key paths are provided
+  if (options.tlsCertPath && options.tlsKeyPath) {
+    // Ensure the TLS app configuration exists
+    if (!config.apps.tls) {
+      config.apps.tls = {};
+    }
+    
+    if (!config.apps.tls.certificates) {
+      config.apps.tls.certificates = {};
+    }
+    
+    // Initialize load_files as an array
+    const certConfig = {
+      certificate: options.tlsCertPath,
+      key: options.tlsKeyPath,
+      tags: [domain]
+    };
+    
+    // Set load_files as an array with our certificate
+    config.apps.tls.certificates.load_files = [certConfig];
+  }
+  
   writeConfig(config);
   return true;
 }
@@ -295,5 +339,67 @@ export function disableDomainLogging(domain) {
   if (found) {
     writeConfig(config);
   }
+  return found;
+}
+
+/**
+ * Updates or adds a TLS certificate configuration for an existing domain
+ * @param {string} domain - The domain to update
+ * @param {string} certPath - Path to the certificate file
+ * @param {string} keyPath - Path to the certificate key file
+ * @returns {boolean} Whether the domain was found and updated
+ */
+export function updateDomainCert(domain, certPath, keyPath) {
+  const config = readConfig();
+  const routes = config.apps.http.servers.main.routes;
+  let found = false;
+
+  // Check if the domain exists in any route
+  routes.forEach(route => {
+    const hosts = route.match?.[0]?.host || [];
+    if (hosts.includes(domain)) {
+      found = true;
+    }
+  });
+
+  if (found) {
+    // Ensure the TLS app configuration exists
+    if (!config.apps.tls) {
+      config.apps.tls = {};
+    }
+    
+    if (!config.apps.tls.certificates) {
+      config.apps.tls.certificates = {};
+    }
+    
+    // Create our certificate configuration
+    const certConfig = {
+      certificate: certPath,
+      key: keyPath,
+      tags: [domain]
+    };
+    
+    // Get existing certificates
+    let loadFiles = config.apps.tls.certificates.load_files || [];
+    
+    // If load_files isn't an array, initialize it
+    if (!Array.isArray(loadFiles)) {
+      loadFiles = [];
+    }
+    
+    // Filter out any existing certificates for this domain
+    loadFiles = loadFiles.filter(cert => 
+      !cert.tags || !cert.tags.includes(domain)
+    );
+    
+    // Add the new certificate
+    loadFiles.push(certConfig);
+    
+    // Update the configuration
+    config.apps.tls.certificates.load_files = loadFiles;
+    
+    writeConfig(config);
+  }
+  
   return found;
 } 
