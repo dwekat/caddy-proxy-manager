@@ -1,6 +1,6 @@
 {
   "name": "caddy-proxy-manager",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "A CLI tool to manage local reverse proxies using Caddy",
   "type": "module",
   "main": "src/cli.js",
