@@ -7,7 +7,8 @@ import net from 'net';
  */
 export function isPortInUse(port) {
   return new Promise((resolve) => {
-    const server = net.createServer()
+    const server = net
+      .createServer()
       .once('error', (err) => {
         if (err.code === 'EADDRINUSE') {
           resolve(true);
@@ -21,4 +22,4 @@ export function isPortInUse(port) {
       })
       .listen(port, '127.0.0.1');
   });
-} 
+}

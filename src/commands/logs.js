@@ -46,9 +46,17 @@ program
       }
 
       // If domain specified but no domain log file found
-      if (domain && !fs.existsSync(getDomainLogPath(domain)) && !options.logPath) {
-        console.log(chalk.yellow(`No specific log file found for domain: ${domain}`));
-        console.log(chalk.blue('Creating domain-specific logging structure...'));
+      if (
+        domain &&
+        !fs.existsSync(getDomainLogPath(domain)) &&
+        !options.logPath
+      ) {
+        console.log(
+          chalk.yellow(`No specific log file found for domain: ${domain}`)
+        );
+        console.log(
+          chalk.blue('Creating domain-specific logging structure...')
+        );
 
         // Create domain directory structure
         ensureDomainDirectories(domain);
@@ -56,18 +64,34 @@ program
         // Enable domain-specific logging
         if (enableDomainLogging(domain)) {
           console.log(chalk.green(`Enabled logging for domain: ${domain}`));
-          console.log(chalk.green(`Domain logs will be written to: ${getDomainLogPath(domain)}`));
+          console.log(
+            chalk.green(
+              `Domain logs will be written to: ${getDomainLogPath(domain)}`
+            )
+          );
           reloadCaddy();
         }
 
-        console.log(chalk.green(`Falling back to global log file: ${logPath || DEFAULT_LOG_FILE}`));
+        console.log(
+          chalk.green(
+            `Falling back to global log file: ${logPath || DEFAULT_LOG_FILE}`
+          )
+        );
       }
 
       // If no log file found
       if (!logPath || !fs.existsSync(logPath)) {
         console.log(chalk.red('No Caddy log file found.'));
-        console.log(chalk.yellow('Caddy logs have been configured but the log file does not exist yet.'));
-        console.log(chalk.blue("This usually means Caddy needs to be restarted or hasn't received any requests."));
+        console.log(
+          chalk.yellow(
+            'Caddy logs have been configured but the log file does not exist yet.'
+          )
+        );
+        console.log(
+          chalk.blue(
+            "This usually means Caddy needs to be restarted or hasn't received any requests."
+          )
+        );
         console.log(chalk.yellow('Try restarting Caddy:'));
         console.log(chalk.green('cpm stop && cpm start'));
         return;
@@ -80,7 +104,11 @@ program
       const grepArgs =
         domain && logPath !== getDomainLogPath(domain) ? ['-i', domain] : [];
 
-      console.log(chalk.yellow(`Showing logs${domain ? ` for ${domain}` : ''} from ${logPath}...`));
+      console.log(
+        chalk.yellow(
+          `Showing logs${domain ? ` for ${domain}` : ''} from ${logPath}...`
+        )
+      );
 
       // Start the tail process
       const tail = spawn('tail', tailArgs);
@@ -138,10 +166,18 @@ program
       // Enable domain-specific logging
       if (enableDomainLogging(domain)) {
         console.log(chalk.green(`Enabled logging for domain: ${domain}`));
-        console.log(chalk.green(`Domain logs will be written to: ${getDomainLogPath(domain)}`));
+        console.log(
+          chalk.green(
+            `Domain logs will be written to: ${getDomainLogPath(domain)}`
+          )
+        );
         await reloadCaddy();
       } else {
-        console.log(chalk.yellow(`Domain "${domain}" not found or logging already enabled.`));
+        console.log(
+          chalk.yellow(
+            `Domain "${domain}" not found or logging already enabled.`
+          )
+        );
       }
     } catch (error) {
       console.error(chalk.red(`Error enabling logs: ${error.message}`));
@@ -159,10 +195,14 @@ program
         console.log(chalk.yellow(`Disabling logs for domain: ${domain}`));
         await reloadCaddy();
       } else {
-        console.log(chalk.yellow(`Domain "${domain}" not found or logging already disabled.`));
+        console.log(
+          chalk.yellow(
+            `Domain "${domain}" not found or logging already disabled.`
+          )
+        );
       }
     } catch (error) {
       console.error(chalk.red(`Error disabling logs: ${error.message}`));
       process.exit(1);
     }
-  }); 
+  });

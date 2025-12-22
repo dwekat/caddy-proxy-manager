@@ -14,12 +14,12 @@ program
     try {
       // Remove proxy from config
       const removed = removeProxy(domain);
-      
+
       if (!removed) {
         console.log(chalk.yellow(`No proxy found for domain: ${domain}`));
         return;
       }
-      
+
       console.log(chalk.green(`Removed proxy for ${domain}`));
 
       // Remove domain from /etc/hosts
@@ -33,7 +33,7 @@ program
         fs.unlinkSync(certPath);
         console.log(chalk.green(`Deleted certificate for ${domain}`));
       }
-      
+
       if (fs.existsSync(certKeyPath)) {
         fs.unlinkSync(certKeyPath);
         console.log(chalk.green(`Deleted certificate key for ${domain}`));
@@ -45,4 +45,4 @@ program
       console.error(chalk.red(`Failed to remove proxy: ${error.message}`));
       process.exit(1);
     }
-  }); 
+  });

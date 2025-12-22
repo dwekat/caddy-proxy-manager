@@ -32,8 +32,10 @@ try {
   checkMkcert();
 } catch (error) {
   console.warn(chalk.yellow(`Warning: ${error.message}`));
-  console.warn(chalk.yellow('Custom certificates will not be available without mkcert.'));
-  
+  console.warn(
+    chalk.yellow('Custom certificates will not be available without mkcert.')
+  );
+
   // Provide OS-specific installation instructions
   const platform = process.platform;
   if (platform === 'darwin') {
@@ -44,7 +46,11 @@ try {
     console.warn(chalk.cyan('To install mkcert on Linux:'));
     console.warn(chalk.cyan('  For Ubuntu/Debian: sudo apt install mkcert'));
     console.warn(chalk.cyan('  For Fedora: sudo dnf install mkcert'));
-    console.warn(chalk.cyan('  For other distributions, visit: https://github.com/FiloSottile/mkcert'));
+    console.warn(
+      chalk.cyan(
+        '  For other distributions, visit: https://github.com/FiloSottile/mkcert'
+      )
+    );
     console.warn(chalk.cyan('  Then run: mkcert -install'));
   } else if (platform === 'win32') {
     console.warn(chalk.cyan('To install mkcert on Windows:'));
@@ -52,7 +58,11 @@ try {
     console.warn(chalk.cyan('  Using Scoop: scoop install mkcert'));
     console.warn(chalk.cyan('  Then run: mkcert -install'));
   } else {
-    console.warn(chalk.cyan('To install mkcert, visit: https://github.com/FiloSottile/mkcert'));
+    console.warn(
+      chalk.cyan(
+        'To install mkcert, visit: https://github.com/FiloSottile/mkcert'
+      )
+    );
   }
 }
 
@@ -65,8 +75,10 @@ const packageJson = JSON.parse(
 // Setup program
 program
   .name('cpm')
-  .description('Caddy Proxy Manager - A CLI tool to manage local reverse proxies')
+  .description(
+    'Caddy Proxy Manager - A CLI tool to manage local reverse proxies'
+  )
   .version(packageJson.version);
 
 // Parse arguments
-program.parse(process.argv); 
+program.parse(process.argv);

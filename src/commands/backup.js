@@ -34,4 +34,4 @@ program
       console.error(chalk.red(`Failed to backup proxies: ${error.message}`));
       process.exit(1);
     }
-  }); 
+  });

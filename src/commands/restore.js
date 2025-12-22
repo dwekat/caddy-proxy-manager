@@ -36,18 +36,22 @@ program
             const certificates = generateCertificates(proxy.domain);
             tlsOptions = {
               tlsCertPath: certificates.cert,
-              tlsKeyPath: certificates.key
+              tlsKeyPath: certificates.key,
             };
           }
 
           // Add proxy configuration
           const proxyAdded = addProxy(proxy.domain, proxy.port, {
             enableLogging: true,
-            ...tlsOptions
+            ...tlsOptions,
           });
-          
+
           if (!proxyAdded) {
-            console.log(chalk.yellow(`Skipping domain ${proxy.domain} as it already exists.`));
+            console.log(
+              chalk.yellow(
+                `Skipping domain ${proxy.domain} as it already exists.`
+              )
+            );
             continue;
           }
 
@@ -56,7 +60,11 @@ program
           // Add domain to /etc/hosts within the cpm block
           await addDomainToHosts(proxy.domain);
         } catch (error) {
-          console.error(chalk.red(`Failed to restore proxy ${proxy.domain}: ${error.message}`));
+          console.error(
+            chalk.red(
+              `Failed to restore proxy ${proxy.domain}: ${error.message}`
+            )
+          );
         }
       }
 
@@ -67,4 +75,4 @@ program
       console.error(chalk.red(`Failed to restore proxies: ${error.message}`));
       process.exit(1);
     }
-  }); 
+  });

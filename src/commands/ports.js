@@ -46,4 +46,4 @@ program
       console.error(chalk.red(`Error checking ports: ${error.message}`));
       process.exit(1);
     }
-  }); 
+  });

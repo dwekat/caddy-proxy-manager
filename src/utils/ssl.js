@@ -19,7 +19,10 @@ export function checkMkcert() {
  * @throws {Error} If local CA is not installed
  */
 export function ensureLocalCA() {
-  const certPath = path.join(shell.env.HOME, 'Library/Application Support/mkcert');
+  const certPath = path.join(
+    shell.env.HOME,
+    'Library/Application Support/mkcert'
+  );
   if (!fs.existsSync(certPath)) {
     throw new Error('mkcert local CA is not installed. Run: mkcert -install');
   }
@@ -57,7 +60,7 @@ export function generateCertificates(domain) {
 
     return {
       cert: certPath,
-      key: certKeyPath
+      key: certKeyPath,
     };
   } catch (error) {
     throw new Error(`SSL Certificate generation failed: ${error.message}`);
@@ -76,7 +79,7 @@ export function removeCertificates(domain) {
     fs.unlinkSync(certPath);
     console.log(chalk.green(`Deleted certificate for ${domain}.`));
   }
-  
+
   if (fs.existsSync(certKeyPath)) {
     fs.unlinkSync(certKeyPath);
     console.log(chalk.green(`Deleted certificate key for ${domain}.`));
@@ -98,10 +101,12 @@ export function validateCertificates(caddyfileContent) {
     const keyPath = match[2];
 
     if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
-      console.log(chalk.red(`Missing certificate or key file: ${certPath} or ${keyPath}`));
+      console.log(
+        chalk.red(`Missing certificate or key file: ${certPath} or ${keyPath}`)
+      );
       allCertsExist = false;
     }
   }
 
   return allCertsExist;
-} 
+}

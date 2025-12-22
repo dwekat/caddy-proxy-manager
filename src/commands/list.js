@@ -18,19 +18,15 @@ program
 
       const table = new Table({
         ...TABLE_CONFIG,
-        head: [
-          chalk.blue('DOMAIN'),
-          chalk.blue('PORT'),
-          chalk.blue('SSL')
-        ],
-        colWidths: [35, 8, 12]
+        head: [chalk.blue('DOMAIN'), chalk.blue('PORT'), chalk.blue('SSL')],
+        colWidths: [35, 8, 12],
       });
 
-      proxies.forEach(proxy => {
+      proxies.forEach((proxy) => {
         table.push([
           proxy.domain,
           proxy.port,
-          proxy.ssl === 'custom' ? chalk.green('Custom') : chalk.cyan('Auto')
+          proxy.ssl === 'custom' ? chalk.green('Custom') : chalk.cyan('Auto'),
         ]);
       });
 
@@ -39,4 +35,4 @@ program
       console.error(chalk.red(`Failed to list proxies: ${error.message}`));
       process.exit(1);
     }
-  }); 
+  });

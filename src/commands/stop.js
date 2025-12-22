@@ -19,4 +19,4 @@ program
       console.error(chalk.red(`Failed to stop Caddy: ${error.message}`));
       process.exit(1);
     }
-  }); 
+  });

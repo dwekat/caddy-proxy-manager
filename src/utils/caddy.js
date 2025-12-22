@@ -1,10 +1,6 @@
 import shell from 'shelljs';
-import fs from 'fs';
 import chalk from 'chalk';
-import { spawn } from 'child_process';
 import { CADDY_CONFIG_PATH } from '../config/constants.js';
-import { validateCertificates } from './ssl.js';
-import { execSudo } from './sudo.js';
 import { cleanupCertificateReferences } from './config.js';
 
 /**
@@ -13,13 +9,16 @@ import { cleanupCertificateReferences } from './config.js';
  */
 export async function reloadCaddy() {
   console.log(chalk.yellow('Reloading Caddy with JSON config...'));
-  
+
   // Clean up any stale certificate references before reloading
   cleanupCertificateReferences();
-  
-  const reloadResult = shell.exec(`caddy reload --config ${CADDY_CONFIG_PATH}`, {
-    silent: true
-  });
+
+  const reloadResult = shell.exec(
+    `caddy reload --config ${CADDY_CONFIG_PATH}`,
+    {
+      silent: true,
+    }
+  );
 
   if (reloadResult.code === 0) {
     console.log(chalk.green('Caddy reloaded successfully.'));
@@ -36,12 +35,12 @@ export async function reloadCaddy() {
  */
 export function startCaddy() {
   console.log(chalk.yellow('Starting Caddy with JSON config...'));
-  
+
   // Clean up any stale certificate references before starting
   cleanupCertificateReferences();
-  
+
   const startResult = shell.exec(`caddy start --config ${CADDY_CONFIG_PATH}`, {
-    silent: true
+    silent: true,
   });
 
   if (startResult.code === 0) {
@@ -59,7 +58,7 @@ export function startCaddy() {
  */
 export function stopCaddy() {
   console.log(chalk.yellow('Stopping Caddy...'));
-  
+
   const stopResult = shell.exec('caddy stop', { silent: true });
 
   if (stopResult.code === 0) {
@@ -89,7 +88,7 @@ export function getCaddyProcessInfo() {
   return {
     pid,
     uptime: uptimeResult.stdout.trim(),
-    memory: memoryResult.stdout.trim() + '%'
+    memory: memoryResult.stdout.trim() + '%',
   };
 }
 
@@ -103,7 +102,7 @@ export function getCaddyConnections() {
       silent: true,
     });
     return result.stdout.trim();
-  } catch (error) {
+  } catch {
     return 'Unknown';
   }
 }
@@ -136,4 +135,4 @@ export function getProcessForPort(port) {
     }
   }
   return null;
-} 
+}

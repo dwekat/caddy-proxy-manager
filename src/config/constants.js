@@ -1,7 +1,11 @@
 import path from 'path';
 
 // Core paths
-export const CADDY_CONFIG_PATH = path.join(process.env.HOME, '.caddy', 'Caddyfile.json');
+export const CADDY_CONFIG_PATH = path.join(
+  process.env.HOME,
+  '.caddy',
+  'Caddyfile.json'
+);
 export const HOSTS_FILE = '/etc/hosts';
 export const CERTS_PATH = path.join(process.env.HOME, '.caddy', 'certs');
 export const LOGS_PATH = path.join(process.env.HOME, '.caddy', 'logs');
@@ -20,14 +24,14 @@ export const DEFAULT_CONFIG = {
     logs: {
       default: {
         encoder: {
-          format: 'console'
+          format: 'console',
         },
         writer: {
           output: 'file',
-          filename: path.join(LOGS_PATH, 'access.log')
-        }
-      }
-    }
+          filename: path.join(LOGS_PATH, 'access.log'),
+        },
+      },
+    },
   },
   apps: {
     http: {
@@ -36,27 +40,38 @@ export const DEFAULT_CONFIG = {
           listen: [':443'],
           routes: [],
           logs: {
-            default_logger_name: 'default'
+            default_logger_name: 'default',
           },
           automatic_https: {
-            disable: false
-          }
-        }
-      }
-    }
-  }
+            disable: false,
+          },
+        },
+      },
+    },
+  },
 };
 
 // Table configurations
 export const TABLE_CONFIG = {
   chars: {
-    'top': '', 'top-mid': '', 'top-left': '', 'top-right': '',
-    'bottom': '', 'bottom-mid': '', 'bottom-left': '', 'bottom-right': '',
-    'left': '', 'left-mid': '', 'mid': '', 'mid-mid': '',
-    'right': '', 'right-mid': '', 'middle': ' '
+    top: '',
+    'top-mid': '',
+    'top-left': '',
+    'top-right': '',
+    bottom: '',
+    'bottom-mid': '',
+    'bottom-left': '',
+    'bottom-right': '',
+    left: '',
+    'left-mid': '',
+    mid: '',
+    'mid-mid': '',
+    right: '',
+    'right-mid': '',
+    middle: ' ',
   },
   style: {
     'padding-left': 0,
-    'padding-right': 2
-  }
-}; 
+    'padding-right': 2,
+  },
+};

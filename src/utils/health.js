@@ -40,4 +40,4 @@ export async function checkDomainHealth(domain) {
     console.error(chalk.red(`Error checking ${domain}: ${error.message}`));
     return false;
   }
-} 
+}

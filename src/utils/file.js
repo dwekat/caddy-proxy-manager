@@ -47,7 +47,9 @@ export function ensureDomainDirectories(domain) {
 
   if (!fs.existsSync(domainLogsDir)) {
     shell.mkdir('-p', domainLogsDir);
-    console.log(chalk.green(`Created domain logs directory at ${domainLogsDir}`));
+    console.log(
+      chalk.green(`Created domain logs directory at ${domainLogsDir}`)
+    );
   }
 }
 
@@ -92,7 +94,9 @@ export function parseProxyConfigs() {
 
     proxyBlocks.forEach((block) => {
       const domainMatch = block.match(/^(\S+)\s*\{/);
-      const portMatch = block.match(/reverse_proxy http:\/\/127\.0\.0\.1:(\d+)/);
+      const portMatch = block.match(
+        /reverse_proxy http:\/\/127\.0\.0\.1:(\d+)/
+      );
       const tlsEnabled = block.includes('tls');
 
       if (domainMatch && portMatch) {
@@ -132,7 +136,11 @@ export async function saveProxyConfigs(filePath) {
 
     const yamlStr = yaml.dump(backupData);
     fs.writeFileSync(filePath, yamlStr, 'utf8');
-    console.log(chalk.green(`Successfully backed up ${proxies.length} proxies to ${filePath}`));
+    console.log(
+      chalk.green(
+        `Successfully backed up ${proxies.length} proxies to ${filePath}`
+      )
+    );
   } catch (error) {
     throw new Error(`Failed to backup proxies: ${error.message}`);
   }
@@ -160,4 +168,4 @@ export function loadProxyConfigs(filePath) {
   } catch (error) {
     throw new Error(`Failed to load proxies: ${error.message}`);
   }
-} 
+}

@@ -1,17 +1,29 @@
 # Caddy Proxy Manager (cpm)
 
+<a href="https://www.buymeacoffee.com/dwekat" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="217"></a>
+
 A CLI tool to manage local reverse proxies using Caddy server. This tool makes it easy to:
+
 - Add and remove proxy configurations
 - Manage SSL certificates
 - Monitor proxy status
 - View and manage logs
 - Backup and restore configurations
 
+## Platform Support
+
+**Currently supports:** macOS and Linux  
+**Windows support:** Coming soon
+
 ## Prerequisites
 
 - Node.js >= 18.0.0
-- Caddy server installed (`brew install caddy`)
-- mkcert installed for custom certificates (`brew install mkcert`)
+- Caddy server installed
+  - macOS: `brew install caddy`
+  - Linux: See [Caddy installation guide](https://caddyserver.com/docs/install)
+- mkcert installed for custom certificates
+  - macOS: `brew install mkcert`
+  - Linux: `sudo apt install mkcert` (Ubuntu/Debian) or `sudo dnf install mkcert` (Fedora)
 
 ## Installation
 
@@ -113,6 +125,7 @@ cpm bulk -f proxies.yml
 ```
 
 Example `proxies.yml`:
+
 ```yaml
 proxies:
   - domain: app1.test
@@ -150,7 +163,7 @@ cpm completion --no-install
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/caddy-proxy-manager.git
+git clone https://github.com/dwekat/caddy-proxy-manager.git
 cd caddy-proxy-manager
 
 # Install dependencies

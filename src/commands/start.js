@@ -24,4 +24,4 @@ program
       console.error(chalk.red(`Failed to start Caddy: ${error.message}`));
       process.exit(1);
     }
-  }); 
+  });

@@ -6,7 +6,7 @@ program
   .option('-s, --shell <type>', 'Shell type (bash, zsh)', 'bash')
   .action((options) => {
     const shell = options.shell.toLowerCase();
-    
+
     if (shell === 'bash') {
       console.log(`
 # cpm completion script
@@ -78,4 +78,4 @@ compdef _cpm cpm
       console.error('Supported shells: bash, zsh');
       process.exit(1);
     }
-  }); 
+  });

@@ -126,14 +126,14 @@ export function showLastLines(logPath, lines, domain = null) {
 export function enableDomainLogging(domain, caddyfileContent) {
   const domainLogPath = getDomainLogPath(domain);
   const domainRegex = new RegExp(`(${domain}\\s*\\{)`, 's');
-  
+
   if (!caddyfileContent.includes(`log {`)) {
     return caddyfileContent.replace(
       domainRegex,
       `$1\n  log {\n    output file ${domainLogPath}\n    format console\n  }`
     );
   }
-  
+
   return caddyfileContent;
 }
 
@@ -174,4 +174,4 @@ export function getLogPath(domain = null) {
   }
 
   return `${LOGS_PATH}/access.log`;
-} 
+}

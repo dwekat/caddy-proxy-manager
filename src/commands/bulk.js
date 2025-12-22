@@ -34,21 +34,31 @@ program
             const certificates = generateCertificates(proxy.domain);
             tlsOptions = {
               tlsCertPath: certificates.cert,
-              tlsKeyPath: certificates.key
+              tlsKeyPath: certificates.key,
             };
-            console.log(chalk.green(`Generated mkcert certificate for ${proxy.domain}`));
+            console.log(
+              chalk.green(`Generated mkcert certificate for ${proxy.domain}`)
+            );
           } else {
-            console.log(chalk.green(`Using Caddy's automatic certificate authority for ${proxy.domain}`));
+            console.log(
+              chalk.green(
+                `Using Caddy's automatic certificate authority for ${proxy.domain}`
+              )
+            );
           }
 
           // Add proxy configuration
           const proxyAdded = addProxy(proxy.domain, proxy.port, {
             enableLogging: true,
-            ...tlsOptions
+            ...tlsOptions,
           });
 
           if (!proxyAdded) {
-            console.log(chalk.yellow(`Skipping domain ${proxy.domain} as it already exists.`));
+            console.log(
+              chalk.yellow(
+                `Skipping domain ${proxy.domain} as it already exists.`
+              )
+            );
             continue;
           }
 
@@ -57,7 +67,9 @@ program
           // Add domain to /etc/hosts within the cpm block
           await addDomainToHosts(proxy.domain);
         } catch (error) {
-          console.error(chalk.red(`Failed to add proxy ${proxy.domain}: ${error.message}`));
+          console.error(
+            chalk.red(`Failed to add proxy ${proxy.domain}: ${error.message}`)
+          );
         }
       }
 
@@ -65,7 +77,9 @@ program
       await reloadCaddy();
       console.log(chalk.green('Bulk operation completed.'));
     } catch (error) {
-      console.error(chalk.red(`Failed to process bulk operation: ${error.message}`));
+      console.error(
+        chalk.red(`Failed to process bulk operation: ${error.message}`)
+      );
       process.exit(1);
     }
-  }); 
+  });

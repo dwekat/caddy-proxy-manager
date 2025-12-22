@@ -24,9 +24,9 @@ program
 
       // Check mkcert status
       const mkcertInstalled = shell.which('mkcert') ? true : false;
-      const mkcertStatus = mkcertInstalled ? 
-        chalk.green('Installed') : 
-        chalk.red('Not Installed (Custom certificates unavailable)');
+      const mkcertStatus = mkcertInstalled
+        ? chalk.green('Installed')
+        : chalk.red('Not Installed (Custom certificates unavailable)');
 
       // Create status table
       const table = new Table({
@@ -49,11 +49,15 @@ program
       // Show proxy count
       const proxies = parseProxyConfigs();
       console.log(chalk.blue(`Managing ${proxies.length} proxies.`));
-      
+
       // Show mkcert installation instructions if not installed
       if (!mkcertInstalled) {
-        console.log(chalk.yellow('\nmkcert is not installed. Install it to use custom certificates:'));
-        
+        console.log(
+          chalk.yellow(
+            '\nmkcert is not installed. Install it to use custom certificates:'
+          )
+        );
+
         // Provide OS-specific installation instructions
         const platform = process.platform;
         if (platform === 'darwin') {
@@ -62,7 +66,9 @@ program
           console.log(chalk.cyan('  mkcert -install'));
         } else if (platform === 'linux') {
           console.log(chalk.cyan('Linux:'));
-          console.log(chalk.cyan('  For Ubuntu/Debian: sudo apt install mkcert'));
+          console.log(
+            chalk.cyan('  For Ubuntu/Debian: sudo apt install mkcert')
+          );
           console.log(chalk.cyan('  For Fedora: sudo dnf install mkcert'));
           console.log(chalk.cyan('  Then run: mkcert -install'));
         } else if (platform === 'win32') {
@@ -71,11 +77,15 @@ program
           console.log(chalk.cyan('  Using Scoop: scoop install mkcert'));
           console.log(chalk.cyan('  Then run: mkcert -install'));
         } else {
-          console.log(chalk.cyan('  Visit: https://github.com/FiloSottile/mkcert'));
+          console.log(
+            chalk.cyan('  Visit: https://github.com/FiloSottile/mkcert')
+          );
         }
       }
     } catch (error) {
-      console.error(chalk.red(`Error while checking Caddy status: ${error.message}`));
+      console.error(
+        chalk.red(`Error while checking Caddy status: ${error.message}`)
+      );
       process.exit(1);
     }
-  }); 
+  });
