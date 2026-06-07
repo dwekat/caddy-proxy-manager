@@ -26,5 +26,5 @@ build/
 .DS_Store
 Thumbs.db
 
-.cursor
+.claude/settings.local.json
 completion.sh
