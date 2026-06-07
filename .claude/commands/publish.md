@@ -1,5 +1,5 @@
 ---
-name: release
+name: publish
 description: Cut a release — bump version, tag, and push; CI publishes to npm
 disable-model-invocation: true
 argument-hint: [patch|minor|major]
