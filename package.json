@@ -14,7 +14,7 @@
     "format": "prettier --write src/",
     "test": "jest --passWithNoTests",
     "changeset": "changeset",
-    "version": "changeset version",
+    "version": "changeset version && npm install --package-lock-only",
     "release": "changeset publish",
     "prepare": "husky"
   },
