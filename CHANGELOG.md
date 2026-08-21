@@ -1,5 +1,11 @@
 # caddy-proxy-manager
 
+## 4.0.1
+
+### Patch Changes
+
+- Update runtime dependencies: chalk 5 → 6, js-yaml 4.2 → 4.3, ora 9.4.0 → 9.4.1.
+
 ## 4.0.0
 
 ### Major Changes
