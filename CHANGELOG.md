@@ -1,5 +1,11 @@
 # caddy-proxy-manager
 
+## 4.0.2
+
+### Patch Changes
+
+- Update runtime dependency: js-yaml 4.3.1 → 4.3.2.
+
 ## 4.0.1
 
 ### Patch Changes
