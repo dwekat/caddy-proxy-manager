@@ -1,5 +1,11 @@
 # caddy-proxy-manager
 
+## 4.0.4
+
+### Patch Changes
+
+- Update maintenance dependencies and migrate npm publishing to trusted publishing.
+
 ## 4.0.2
 
 ### Patch Changes
