@@ -1,6 +1,6 @@
 {
   "name": "caddy-proxy-manager",
-  "version": "4.0.3",
+  "version": "4.0.4",
   "description": "A CLI tool to manage local reverse proxies using Caddy",
   "type": "module",
   "main": "src/cli.js",
@@ -55,7 +55,7 @@
     "@commitlint/config-conventional": "^21.2.2",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-prettier": "^5.5.7",
     "husky": "^9.1.7",
     "jest": "^30.5.1",
     "lint-staged": "^17.4.1",
